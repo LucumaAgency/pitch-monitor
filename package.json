@@ -11,7 +11,7 @@
     "logs": "tail -f logs/debug.log",
     "logs:error": "tail -f logs/error.log",
     "test": "node server-production.js",
-    "postinstall": "node build.js"
+    "postinstall": "node build.js && node setup-frontend.js"
   },
   "keywords": [
     "pitch-detection",
