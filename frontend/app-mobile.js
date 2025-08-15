@@ -484,18 +484,24 @@ class MobilePitchMonitor {
 }
 
 // Inicializar versión correcta según dispositivo
-let pitchMonitor;
-
 window.addEventListener('DOMContentLoaded', () => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (isMobile) {
-        pitchMonitor = new MobilePitchMonitor();
+        window.pitchMonitor = new MobilePitchMonitor();
         console.log('Pitch Monitor Móvil inicializado');
     } else {
-        // En desktop cargar el híbrido
+        // En desktop cargar el híbrido de forma dinámica
         const script = document.createElement('script');
-        script.src = 'app-hybrid-offline.js?v=4';
+        script.src = 'app-hybrid-offline.js?v=5';
+        script.onload = () => {
+            console.log('Pitch Monitor Desktop cargado');
+        };
+        script.onerror = () => {
+            // Si falla, usar versión móvil como fallback
+            window.pitchMonitor = new MobilePitchMonitor();
+            console.log('Fallback: Pitch Monitor Móvil inicializado');
+        };
         document.body.appendChild(script);
     }
 });

@@ -458,10 +458,10 @@ class HybridOfflinePitchMonitor {
     }
 }
 
-// Inicializar
-let pitchMonitor;
-
-window.addEventListener('DOMContentLoaded', () => {
-    pitchMonitor = new HybridOfflinePitchMonitor();
-    console.log('Pitch Monitor Híbrido inicializado - Captura de pestaña disponible');
-});
+// Inicializar solo si no está ya inicializado
+if (!window.pitchMonitor) {
+    window.addEventListener('DOMContentLoaded', () => {
+        window.pitchMonitor = new HybridOfflinePitchMonitor();
+        console.log('Pitch Monitor Híbrido inicializado - Captura de pestaña disponible');
+    });
+}
