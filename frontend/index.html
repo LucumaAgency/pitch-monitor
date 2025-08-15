@@ -21,6 +21,12 @@
             padding: 20px;
         }
         
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+        }
+        
         .container {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
@@ -30,6 +36,13 @@
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
         
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+                border-radius: 15px;
+            }
+        }
+        
         h1 {
             color: #333;
             text-align: center;
@@ -37,11 +50,24 @@
             font-size: 2.5em;
         }
         
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 20px;
+            }
+        }
+        
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
             margin-bottom: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
         }
         
         .control-group {
@@ -96,11 +122,23 @@
             margin: 10px 0;
         }
         
+        @media (max-width: 768px) {
+            #waveformCanvas, #frequencyCanvas {
+                height: 150px;
+            }
+        }
+        
         .pitch-display {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
             margin-top: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .pitch-display {
+                grid-template-columns: 1fr;
+            }
         }
         
         .pitch-box {
@@ -118,6 +156,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+        
+        @media (max-width: 768px) {
+            .note {
+                font-size: 2.2em;
+                min-height: 60px;
+            }
         }
         
         .frequency {
@@ -268,6 +313,6 @@
     </div>
     
     <!-- Script adaptativo: Móvil o Desktop -->
-    <script src="app-mobile.js?v=2"></script>
+    <script src="app-mobile.js?v=3"></script>
 </body>
 </html>

@@ -483,8 +483,8 @@ class MobilePitchMonitor {
     }
 }
 
-// Inicializar versión correcta según dispositivo
-window.addEventListener('DOMContentLoaded', () => {
+// Función para inicializar la versión correcta
+function initializePitchMonitor() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (isMobile) {
@@ -493,7 +493,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         // En desktop cargar el híbrido de forma dinámica
         const script = document.createElement('script');
-        script.src = 'app-hybrid-offline.js?v=6';
+        script.src = 'app-hybrid-offline.js?v=7';
         script.onload = () => {
             // Verificar si la clase está disponible
             if (typeof HybridOfflinePitchMonitor !== 'undefined') {
@@ -507,9 +507,18 @@ window.addEventListener('DOMContentLoaded', () => {
         };
         script.onerror = () => {
             // Si falla, usar versión móvil como fallback
+            console.error('Error cargando app-hybrid-offline.js');
             window.pitchMonitor = new MobilePitchMonitor();
             console.log('Fallback: Pitch Monitor Móvil inicializado');
         };
         document.body.appendChild(script);
     }
-});
+}
+
+// Inicializar cuando el DOM esté listo
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initializePitchMonitor);
+} else {
+    // DOM ya está listo
+    initializePitchMonitor();
+}
