@@ -7,7 +7,10 @@ class FinalPitchMonitor {
         this.youtubePlayer = null;
         this.isMonitoring = false;
         this.rafId = null;
-        this.serverUrl = window.location.origin;
+        // Detectar si estamos en producción o desarrollo
+        this.serverUrl = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3000'
+            : window.location.origin;
         
         // Para el audio del video
         this.videoAudioElement = null;

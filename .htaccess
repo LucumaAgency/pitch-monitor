@@ -1,0 +1,17 @@
+# Configuración para Plesk con Node.js
+# Este archivo es para Apache si Plesk usa Apache como proxy
+
+RewriteEngine On
+
+# Redirigir todas las peticiones API al servidor Node.js
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^api/(.*)$ http://localhost:3000/api/$1 [P,L]
+
+# Servir archivos estáticos directamente
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Redirigir todo lo demás a index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
