@@ -50,13 +50,18 @@ app.use((req, res, next) => {
 // ==========================================
 // 📁 SERVIR FRONTEND
 // ==========================================
-if (isDevelopment) {
-    // Desarrollo: servir desde src
-    app.use(express.static(path.join(__dirname, 'frontend/src')));
-} else {
-    // Producción: servir desde dist
-    app.use(express.static(path.join(__dirname, 'frontend/dist')));
-}
+// Servir archivos estáticos del frontend
+const staticPath = path.join(__dirname, 'frontend/src');
+logger.info(`📁 Sirviendo archivos estáticos desde: ${staticPath}`);
+app.use(express.static(staticPath));
+
+// Log para debugging
+app.use((req, res, next) => {
+    if (req.path.endsWith('.js') || req.path.endsWith('.css')) {
+        logger.info(`📄 Archivo solicitado: ${req.path}`);
+    }
+    next();
+});
 
 // ==========================================
 // 🎵 API: YOUTUBE AUDIO
@@ -201,9 +206,8 @@ app.use((err, req, res, next) => {
 
 // SPA fallback - todas las rutas no-API van al index
 app.get('*', (req, res) => {
-    const indexPath = isDevelopment 
-        ? path.join(__dirname, 'frontend/src/index.html')
-        : path.join(__dirname, 'frontend/dist/index.html');
+    const indexPath = path.join(__dirname, 'frontend/src/index.html');
+    logger.info(`📄 Sirviendo index.html desde: ${indexPath}`);
     res.sendFile(indexPath);
 });
 
