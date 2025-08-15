@@ -112,11 +112,16 @@ if (fs.existsSync(publicPath)) {
 }
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+const server = require('http').createServer(app);
+
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
     console.log('📍 APIs available at /api/*');
     console.log('📁 Static files served from /public');
-}).on('error', (err) => {
+    console.log('🔍 Test: http://localhost:' + PORT + '/api/health');
+});
+
+server.on('error', (err) => {
     console.error('Server error:', err);
     process.exit(1);
 });
