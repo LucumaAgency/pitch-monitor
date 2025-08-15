@@ -5,6 +5,7 @@ const path = require('path');
 const logger = require('./logger');
 
 const app = express();
+// Plesk asigna el puerto automáticamente
 const PORT = process.env.PORT || 3000;
 
 // Logging inicial
@@ -26,13 +27,15 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
-app.use(express.static('.'));
 
 // Middleware para logging de requests
 app.use((req, res, next) => {
     logger.info(`${req.method} ${req.path} - IP: ${req.ip}`);
     next();
 });
+
+// IMPORTANTE: Servir archivos estáticos DESPUÉS del logging pero ANTES de las rutas API
+app.use(express.static(path.join(__dirname, '/')));
 
 app.get('/api/youtube-audio/:videoId', async (req, res) => {
     try {
@@ -149,14 +152,20 @@ process.on('unhandledRejection', (reason, promise) => {
     logger.error(`Promesa rechazada no manejada: ${reason}`);
 });
 
-app.listen(PORT, () => {
-    logger.info(`Servidor corriendo en http://localhost:${PORT}`);
-    logger.info(`Abre http://localhost:${PORT} en tu navegador para usar la aplicación`);
+// Para Plesk: escuchar en todas las interfaces
+const server = app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`Servidor corriendo en puerto ${PORT}`);
+    logger.info(`Environment: ${process.env.NODE_ENV}`);
     logger.info('Logs disponibles en /api/logs');
-}).on('error', (err) => {
+    logger.info('Health check en /api/health');
+});
+
+server.on('error', (err) => {
     logger.error(`Error al iniciar servidor: ${err.message}`);
     if (err.code === 'EADDRINUSE') {
         logger.error(`El puerto ${PORT} ya está en uso`);
+    } else if (err.code === 'EACCES') {
+        logger.error(`Sin permisos para usar el puerto ${PORT}`);
     }
     process.exit(1);
 });
