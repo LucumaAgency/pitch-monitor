@@ -1,11 +1,16 @@
 {
   "name": "pitch-monitor",
   "version": "1.0.0",
-  "description": "Web app para detectar notas musicales del micrófono y compararlas con videos de YouTube",
-  "main": "server.js",
+  "description": "🎵 Web app para detectar notas musicales del micrófono y compararlas con videos de YouTube",
+  "main": "server.cjs",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "NODE_ENV=production node server.cjs",
+    "dev": "NODE_ENV=development nodemon server.cjs",
+    "build": "npm run build:frontend",
+    "build:frontend": "cp -r frontend/src/* frontend/dist/ 2>/dev/null || true",
+    "logs": "tail -f logs/debug.log",
+    "logs:error": "tail -f logs/error.log",
+    "test": "node server.cjs"
   },
   "keywords": [
     "pitch-detection",
