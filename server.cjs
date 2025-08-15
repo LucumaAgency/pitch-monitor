@@ -7,7 +7,21 @@ const express = require('express');
 const cors = require('cors');
 const ytdl = require('ytdl-core');
 const path = require('path');
-const logger = require('./logger');
+// Intentar cargar logger, si falla usar console
+let logger;
+try {
+    logger = require('./logger');
+} catch (err) {
+    console.log('Logger not available, using console');
+    logger = {
+        info: console.log,
+        error: console.error,
+        warning: console.warn,
+        debug: console.log,
+        getLogs: () => 'Logs not available',
+        clearLogs: () => false
+    };
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
