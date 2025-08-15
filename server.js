@@ -2,9 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const ytdl = require('ytdl-core');
 const path = require('path');
+const logger = require('./logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Logging inicial
+logger.info('=================================');
+logger.info('Iniciando servidor Pitch Monitor');
+logger.info(`Node version: ${process.version}`);
+logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+logger.info(`Port: ${PORT}`);
+logger.info('=================================');
 
 // Trust proxy para Plesk
 app.set('trust proxy', true);
@@ -18,6 +27,12 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.static('.'));
+
+// Middleware para logging de requests
+app.use((req, res, next) => {
+    logger.info(`${req.method} ${req.path} - IP: ${req.ip}`);
+    next();
+});
 
 app.get('/api/youtube-audio/:videoId', async (req, res) => {
     try {
@@ -46,7 +61,7 @@ app.get('/api/youtube-audio/:videoId', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Error al procesar video de YouTube:', error);
+        logger.error(`Error al procesar video de YouTube: ${error.message}`);
         res.status(500).json({ error: 'Error al procesar el video' });
     }
 });
@@ -66,7 +81,7 @@ app.get('/api/youtube-stream/:videoId', (req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Cache-Control', 'no-cache');
         
-        console.log(`Streaming audio para video ID: ${videoId}`);
+        logger.info(`Streaming audio para video ID: ${videoId}`);
         
         const stream = ytdl(url, {
             filter: 'audioonly',
@@ -75,11 +90,11 @@ app.get('/api/youtube-stream/:videoId', (req, res) => {
         });
         
         stream.on('info', (info) => {
-            console.log(`Título: ${info.videoDetails.title}`);
+            logger.info(`Streaming: ${info.videoDetails.title}`);
         });
         
         stream.on('error', (error) => {
-            console.error('Error en stream:', error);
+            logger.error(`Error en stream: ${error.message}`);
             if (!res.headersSent) {
                 res.status(500).json({ error: 'Error al transmitir audio' });
             }
@@ -88,12 +103,60 @@ app.get('/api/youtube-stream/:videoId', (req, res) => {
         stream.pipe(res);
         
     } catch (error) {
-        console.error('Error al transmitir audio:', error);
+        logger.error(`Error al transmitir audio: ${error.message}`);
         res.status(500).json({ error: 'Error al transmitir audio' });
     }
 });
 
+// Endpoints para ver logs
+app.get('/api/logs', (req, res) => {
+    const lines = parseInt(req.query.lines) || 100;
+    const type = req.query.type || 'all';
+    const logs = logger.getLogs(lines, type);
+    res.type('text/plain').send(logs);
+});
+
+app.get('/api/logs/clear', (req, res) => {
+    const cleared = logger.clearLogs();
+    res.json({ success: cleared });
+});
+
+// Endpoint de salud
+app.get('/api/health', (req, res) => {
+    logger.info('Health check requested');
+    res.json({ 
+        status: 'healthy',
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Manejo de errores global
+app.use((err, req, res, next) => {
+    logger.error(`Error no manejado: ${err.message}`);
+    logger.error(err.stack);
+    res.status(500).json({ error: 'Error interno del servidor' });
+});
+
+// Manejo de proceso
+process.on('uncaughtException', (err) => {
+    logger.error(`Excepción no capturada: ${err.message}`);
+    logger.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error(`Promesa rechazada no manejada: ${reason}`);
+});
+
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
-    console.log(`Abre http://localhost:${PORT} en tu navegador para usar la aplicación`);
+    logger.info(`Servidor corriendo en http://localhost:${PORT}`);
+    logger.info(`Abre http://localhost:${PORT} en tu navegador para usar la aplicación`);
+    logger.info('Logs disponibles en /api/logs');
+}).on('error', (err) => {
+    logger.error(`Error al iniciar servidor: ${err.message}`);
+    if (err.code === 'EADDRINUSE') {
+        logger.error(`El puerto ${PORT} ya está en uso`);
+    }
+    process.exit(1);
 });
