@@ -4,13 +4,14 @@
   "description": "🎵 Web app para detectar notas musicales del micrófono y compararlas con videos de YouTube",
   "main": "server.cjs",
   "scripts": {
-    "start": "NODE_ENV=production node server.cjs",
-    "dev": "NODE_ENV=development nodemon server.cjs",
-    "build": "npm run build:frontend",
-    "build:frontend": "cp -r frontend/src/* frontend/dist/ 2>/dev/null || true",
+    "start": "node server-production.js",
+    "dev": "nodemon server.cjs",
+    "build": "node build.js",
+    "build:frontend": "node build.js",
     "logs": "tail -f logs/debug.log",
     "logs:error": "tail -f logs/error.log",
-    "test": "node server.cjs"
+    "test": "node server-production.js",
+    "postinstall": "node build.js"
   },
   "keywords": [
     "pitch-detection",
