@@ -458,10 +458,5 @@ class HybridOfflinePitchMonitor {
     }
 }
 
-// Inicializar solo si no está ya inicializado
-if (!window.pitchMonitor) {
-    window.addEventListener('DOMContentLoaded', () => {
-        window.pitchMonitor = new HybridOfflinePitchMonitor();
-        console.log('Pitch Monitor Híbrido inicializado - Captura de pestaña disponible');
-    });
-}
+// NO inicializar automáticamente - será inicializado por app-mobile.js
+console.log('HybridOfflinePitchMonitor clase cargada');

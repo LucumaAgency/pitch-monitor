@@ -493,9 +493,17 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
         // En desktop cargar el híbrido de forma dinámica
         const script = document.createElement('script');
-        script.src = 'app-hybrid-offline.js?v=5';
+        script.src = 'app-hybrid-offline.js?v=6';
         script.onload = () => {
-            console.log('Pitch Monitor Desktop cargado');
+            // Verificar si la clase está disponible
+            if (typeof HybridOfflinePitchMonitor !== 'undefined') {
+                window.pitchMonitor = new HybridOfflinePitchMonitor();
+                console.log('Pitch Monitor Desktop (Híbrido) inicializado');
+            } else {
+                console.error('HybridOfflinePitchMonitor no está definido');
+                window.pitchMonitor = new MobilePitchMonitor();
+                console.log('Fallback: Pitch Monitor Móvil inicializado');
+            }
         };
         script.onerror = () => {
             // Si falla, usar versión móvil como fallback
