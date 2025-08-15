@@ -6,7 +6,13 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Range'],
+    exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.static('.'));
 
@@ -51,13 +57,32 @@ app.get('/api/youtube-stream/:videoId', (req, res) => {
             return res.status(400).json({ error: 'URL de YouTube inválida' });
         }
         
-        res.setHeader('Content-Type', 'audio/mpeg');
+        // Headers importantes para streaming de audio
+        res.setHeader('Content-Type', 'audio/webm');
         res.setHeader('Transfer-Encoding', 'chunked');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache');
         
-        ytdl(url, {
+        console.log(`Streaming audio para video ID: ${videoId}`);
+        
+        const stream = ytdl(url, {
             filter: 'audioonly',
-            quality: 'highestaudio'
-        }).pipe(res);
+            quality: 'highestaudio',
+            highWaterMark: 1024 * 1024 * 10 // 10MB buffer
+        });
+        
+        stream.on('info', (info) => {
+            console.log(`Título: ${info.videoDetails.title}`);
+        });
+        
+        stream.on('error', (error) => {
+            console.error('Error en stream:', error);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Error al transmitir audio' });
+            }
+        });
+        
+        stream.pipe(res);
         
     } catch (error) {
         console.error('Error al transmitir audio:', error);

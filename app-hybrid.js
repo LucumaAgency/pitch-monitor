@@ -152,7 +152,8 @@ class HybridPitchMonitor {
             this.videoAudioElement = document.createElement('audio');
             this.videoAudioElement.crossOrigin = 'anonymous';
             this.videoAudioElement.src = `${this.serverUrl}/api/youtube-stream/${videoId}`;
-            this.videoAudioElement.volume = 0; // Silenciar para evitar doble audio
+            this.videoAudioElement.volume = 1; // Volumen normal para que llegue señal al analyser
+            this.videoAudioElement.style.display = 'none';
             document.body.appendChild(this.videoAudioElement);
             
             // Configurar análisis de audio
@@ -161,8 +162,14 @@ class HybridPitchMonitor {
             this.videoAnalyser.fftSize = 4096;
             this.videoAnalyser.smoothingTimeConstant = 0.8;
             
+            // Crear un GainNode para silenciar el audio DESPUÉS del analyser
+            const silentGain = this.audioContext.createGain();
+            silentGain.gain.value = 0; // Silenciar aquí, no en el elemento
+            
+            // Conectar: source -> analyser -> silentGain -> destination
             this.videoSource.connect(this.videoAnalyser);
-            this.videoSource.connect(this.audioContext.destination);
+            this.videoAnalyser.connect(silentGain);
+            silentGain.connect(this.audioContext.destination);
             
             this.updateStatus('Audio del video listo para análisis', 'success');
             
@@ -281,7 +288,7 @@ class HybridPitchMonitor {
         
         // Análisis del micrófono
         if (this.micAnalyser) {
-            const micPitch = this.detectPitch(this.micAnalyser);
+            const micPitch = this.detectPitch(this.micAnalyser, 'mic');
             if (micPitch && micPitch > 0) {
                 const note = this.frequencyToNote(micPitch);
                 document.getElementById('userNote').textContent = note.note;
@@ -291,13 +298,12 @@ class HybridPitchMonitor {
                 document.getElementById('userFreq').textContent = '0 Hz';
             }
             
-            this.drawWaveform(this.micAnalyser);
-            this.drawFrequencySpectrum(this.micAnalyser);
+            this.drawWaveform(this.micAnalyser, 'waveformCanvas');
         }
         
         // Análisis del video
         if (this.videoAnalyser && this.videoAudioElement && !this.videoAudioElement.paused) {
-            const videoPitch = this.detectPitch(this.videoAnalyser);
+            const videoPitch = this.detectPitch(this.videoAnalyser, 'video');
             if (videoPitch && videoPitch > 0) {
                 const note = this.frequencyToNote(videoPitch);
                 document.getElementById('videoNote').textContent = note.note;
@@ -306,15 +312,35 @@ class HybridPitchMonitor {
                 document.getElementById('videoNote').textContent = '--';
                 document.getElementById('videoFreq').textContent = '0 Hz';
             }
+            
+            // Dibujar espectro del video para debugging
+            this.drawFrequencySpectrum(this.videoAnalyser, 'frequencyCanvas');
+        } else {
+            // Si hay micrófono pero no video, mostrar espectro del mic
+            if (this.micAnalyser) {
+                this.drawFrequencySpectrum(this.micAnalyser, 'frequencyCanvas');
+            }
         }
         
         this.updateMatchLevel();
     }
     
-    detectPitch(analyser) {
+    detectPitch(analyser, source = '') {
         const bufferLength = analyser.fftSize;
         const buffer = new Float32Array(bufferLength);
         analyser.getFloatTimeDomainData(buffer);
+        
+        // Calcular RMS para verificar si hay señal de audio
+        let rms = 0;
+        for (let i = 0; i < buffer.length; i++) {
+            rms += buffer[i] * buffer[i];
+        }
+        rms = Math.sqrt(rms / buffer.length);
+        
+        // Solo para debugging del video
+        if (source === 'video' && rms > 0.001) {
+            console.log(`Video RMS: ${rms.toFixed(4)}`);
+        }
         
         return this.YINDetector(buffer, this.audioContext.sampleRate);
     }
@@ -395,8 +421,10 @@ class HybridPitchMonitor {
         return { note: '--', cents: 0 };
     }
     
-    drawWaveform(analyser) {
-        const canvas = document.getElementById('waveformCanvas');
+    drawWaveform(analyser, canvasId) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        
         const ctx = canvas.getContext('2d');
         const bufferLength = analyser.fftSize;
         const dataArray = new Uint8Array(bufferLength);
@@ -433,8 +461,10 @@ class HybridPitchMonitor {
         ctx.stroke();
     }
     
-    drawFrequencySpectrum(analyser) {
-        const canvas = document.getElementById('frequencyCanvas');
+    drawFrequencySpectrum(analyser, canvasId) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        
         const ctx = canvas.getContext('2d');
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
