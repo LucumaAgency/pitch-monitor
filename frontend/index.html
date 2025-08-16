@@ -212,47 +212,6 @@
             color: #1565c0;
         }
         
-        .video-container {
-            background: #f7f7f7;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        #youtubePlayer {
-            width: 100%;
-            aspect-ratio: 16/9;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .video-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-top: 15px;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-        }
-        
-        .video-controls button {
-            width: auto;
-            padding: 8px 16px;
-            font-size: 14px;
-        }
-        
-        #volumeSlider {
-            width: 150px;
-            padding: 0;
-        }
-        
-        #timeDisplay {
-            margin-left: auto;
-            font-family: monospace;
-            color: #666;
-        }
     </style>
 </head>
 <body>
@@ -267,19 +226,9 @@
             </div>
             
             <div class="control-group">
-                <h3>📺 YouTube</h3>
-                <input type="text" id="youtubeUrl" placeholder="URL del video de YouTube">
-                <button id="loadYoutube">Cargar Video</button>
-            </div>
-        </div>
-        
-        <div class="video-container">
-            <div id="youtubePlayer"></div>
-            <div class="video-controls" id="videoControls" style="display: none;">
-                <button id="playPause">▶️ Play</button>
-                <button id="muteUnmute">🔇 Mute</button>
-                <input type="range" id="volumeSlider" min="0" max="100" value="50">
-                <span id="timeDisplay">00:00 / 00:00</span>
+                <h3>🎧 Captura de Audio</h3>
+                <input type="text" id="youtubeUrl" placeholder="URL del video de YouTube" style="display: none;">
+                <button id="loadYoutube">Capturar Audio de Pestaña</button>
             </div>
         </div>
         
