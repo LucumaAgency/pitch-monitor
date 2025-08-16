@@ -189,6 +189,27 @@ class HybridOfflinePitchMonitor {
             z-index: 20;
         `;
         container.appendChild(diffIndicator);
+        
+        // Indicador de nivel de audio
+        const audioLevel = document.createElement('div');
+        audioLevel.id = 'audioLevelIndicator';
+        audioLevel.style.cssText = `
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            color: white;
+            font-family: monospace;
+            font-size: 11px;
+            z-index: 20;
+        `;
+        audioLevel.innerHTML = `
+            <div>🎤 Mic: <span id="micLevel">--</span></div>
+            <div>🎵 YouTube: <span id="systemLevel">--</span></div>
+        `;
+        container.appendChild(audioLevel);
     }
     
     updateUI() {
@@ -522,18 +543,45 @@ class HybridOfflinePitchMonitor {
         const buffer = new Float32Array(bufferLength);
         analyser.getFloatTimeDomainData(buffer);
         
-        // Calcular RMS
+        // Calcular RMS (Root Mean Square) para medir el volumen
         let rms = 0;
         for (let i = 0; i < buffer.length; i++) {
             rms += buffer[i] * buffer[i];
         }
         rms = Math.sqrt(rms / buffer.length);
         
-        // Threshold más bajo para YouTube
-        const threshold = source === 'system' ? 0.005 : 0.01;
+        // Threshold mucho más bajo para YouTube/sistema
+        // YouTube a menudo tiene audio más bajo que el micrófono
+        const threshold = source === 'system' ? 0.001 : 0.008;
+        
+        // Actualizar indicador de nivel de audio
+        if (source === 'system') {
+            const levelSpan = document.getElementById('systemLevel');
+            if (levelSpan) {
+                const percentage = Math.min(100, (rms / 0.1) * 100);
+                levelSpan.textContent = `${percentage.toFixed(0)}%`;
+                levelSpan.style.color = rms > threshold ? '#4ade80' : '#ef4444';
+            }
+        } else if (source === 'mic') {
+            const levelSpan = document.getElementById('micLevel');
+            if (levelSpan) {
+                const percentage = Math.min(100, (rms / 0.1) * 100);
+                levelSpan.textContent = `${percentage.toFixed(0)}%`;
+                levelSpan.style.color = rms > threshold ? '#4ade80' : '#ef4444';
+            }
+        }
+        
         if (rms < threshold) return -1;
         
-        return this.YINDetector(buffer, this.audioContext.sampleRate);
+        // Para audio del sistema, intentar autocorrelación si YIN falla
+        const pitch = this.YINDetector(buffer, this.audioContext.sampleRate);
+        
+        // Si YIN no detecta nada pero hay audio, intentar autocorrelación
+        if (pitch === -1 && source === 'system' && rms > threshold) {
+            return this.autocorrelate(buffer, this.audioContext.sampleRate);
+        }
+        
+        return pitch;
     }
     
     YINDetector(buffer, sampleRate) {
@@ -584,6 +632,42 @@ class HybridOfflinePitchMonitor {
                    (2 * (2 * array[x] - array[x - 1] - array[x + 1]));
         
         return x + xs;
+    }
+    
+    // Método de autocorrelación como respaldo para audio de sistema
+    autocorrelate(buffer, sampleRate) {
+        const SIZE = buffer.length;
+        const MAX_SAMPLES = Math.floor(SIZE / 2);
+        let bestOffset = -1;
+        let bestCorrelation = 0;
+        let foundGoodCorrelation = false;
+        const correlations = new Array(MAX_SAMPLES);
+        
+        // Buscar el mejor offset
+        for (let offset = 0; offset < MAX_SAMPLES; offset++) {
+            let correlation = 0;
+            
+            for (let i = 0; i < MAX_SAMPLES; i++) {
+                correlation += Math.abs((buffer[i]) - (buffer[i + offset]));
+            }
+            
+            correlation = 1 - (correlation / MAX_SAMPLES);
+            correlations[offset] = correlation;
+            
+            if (correlation > 0.9 && correlation > bestCorrelation) {
+                bestCorrelation = correlation;
+                bestOffset = offset;
+                foundGoodCorrelation = true;
+            }
+        }
+        
+        if (foundGoodCorrelation && bestOffset > 0) {
+            // Refinar con interpolación parabólica
+            const betterOffset = this.parabolicInterpolation(correlations, bestOffset);
+            return sampleRate / betterOffset;
+        }
+        
+        return -1;
     }
     
     frequencyToNote(frequency) {
