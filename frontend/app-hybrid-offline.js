@@ -25,9 +25,14 @@ class HybridOfflinePitchMonitor {
         // Frecuencias de notas para visualización (C3 a B5)
         this.noteFrequencies = this.generateNoteFrequencies();
         
+        // Timeline data
+        this.timelineData = [];
+        this.maxTimelinePoints = 200; // Puntos máximos en el timeline
+        this.timelineStartTime = null;
+        
         this.initializeEventListeners();
         this.updateUI();
-        this.createPianoVisualization();
+        this.createTimelineVisualization();
     }
     
     generateNoteFrequencies() {
@@ -50,130 +55,131 @@ class HybridOfflinePitchMonitor {
         return frequencies;
     }
     
-    createPianoVisualization() {
-        // Reemplazar el canvas de waveform con visualización de piano
+    createTimelineVisualization() {
+        // Reemplazar el canvas de waveform con visualización de timeline
         const waveformCanvas = document.getElementById('waveformCanvas');
         if (waveformCanvas && waveformCanvas.parentNode) {
-            // Crear contenedor para el piano
-            const pianoContainer = document.createElement('div');
-            pianoContainer.id = 'pianoVisualization';
-            pianoContainer.style.cssText = `
+            // Crear contenedor para el timeline
+            const timelineContainer = document.createElement('div');
+            timelineContainer.id = 'timelineVisualization';
+            timelineContainer.style.cssText = `
                 width: 100%;
                 height: 600px;
-                background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
                 border-radius: 8px;
                 position: relative;
                 overflow: hidden;
-                display: flex;
-                align-items: center;
             `;
             
-            // Crear el contenedor de notas
-            const notesContainer = document.createElement('div');
-            notesContainer.id = 'notesContainer';
-            notesContainer.style.cssText = `
+            // Canvas para el timeline
+            const canvas = document.createElement('canvas');
+            canvas.id = 'timelineCanvas';
+            canvas.style.cssText = `
                 width: 100%;
                 height: 100%;
-                position: relative;
-                padding: 20px 0;
+                position: absolute;
+                top: 0;
+                left: 0;
             `;
             
-            pianoContainer.appendChild(notesContainer);
-            waveformCanvas.parentNode.replaceChild(pianoContainer, waveformCanvas);
+            // Línea central (tiempo actual)
+            const centerLine = document.createElement('div');
+            centerLine.style.cssText = `
+                position: absolute;
+                left: 50%;
+                top: 0;
+                bottom: 0;
+                width: 2px;
+                background: rgba(255, 255, 255, 0.8);
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+                z-index: 10;
+            `;
             
-            // Dibujar las líneas de notas
-            this.drawNoteLines();
+            // Indicador de tiempo actual
+            const timeIndicator = document.createElement('div');
+            timeIndicator.style.cssText = `
+                position: absolute;
+                left: 50%;
+                top: 10px;
+                transform: translateX(-50%);
+                padding: 5px 10px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                border-radius: 5px;
+                font-family: monospace;
+                font-size: 12px;
+                z-index: 11;
+            `;
+            timeIndicator.textContent = 'AHORA';
+            
+            timelineContainer.appendChild(canvas);
+            timelineContainer.appendChild(centerLine);
+            timelineContainer.appendChild(timeIndicator);
+            
+            waveformCanvas.parentNode.replaceChild(timelineContainer, waveformCanvas);
+            
+            // Dibujar las líneas de notas horizontales
+            this.setupTimelineCanvas();
         }
     }
     
-    drawNoteLines() {
-        const container = document.getElementById('notesContainer');
-        if (!container) return;
+    setupTimelineCanvas() {
+        const canvas = document.getElementById('timelineCanvas');
+        if (!canvas) return;
         
-        container.innerHTML = '';
+        // Configurar dimensiones del canvas
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
         
-        // Mostrar todas las notas (naturales y sostenidos) para mejor precisión
-        const allNotes = this.noteFrequencies;
-        const containerHeight = 560; // altura menos padding (600 - 40)
-        const noteHeight = containerHeight / allNotes.length;
-        
-        allNotes.forEach((note, index) => {
-            const noteElement = document.createElement('div');
-            noteElement.className = 'note-line';
-            noteElement.dataset.frequency = note.frequency;
-            noteElement.style.cssText = `
-                position: absolute;
-                left: 0;
-                right: 0;
-                height: 1px;
-                background: ${note.isSharp ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.15)'};
-                top: ${index * noteHeight + 20}px;
-                display: flex;
-                align-items: center;
-            `;
-            
-            // Etiqueta de nota (solo para notas naturales para no saturar)
-            if (!note.isSharp) {
-                const label = document.createElement('span');
-                label.style.cssText = `
-                    position: absolute;
-                    left: 10px;
-                    color: rgba(255, 255, 255, 0.6);
-                    font-size: 11px;
-                    font-weight: bold;
-                    font-family: monospace;
-                    background: rgba(0, 0, 0, 0.7);
-                    padding: 2px 6px;
-                    border-radius: 3px;
-                `;
-                label.textContent = note.note;
-                noteElement.appendChild(label);
-            }
-            
-            container.appendChild(noteElement);
-        });
-        
-        // Crear indicadores de frecuencia (líneas móviles)
-        this.createFrequencyIndicators();
+        // Dibujar líneas de referencia de notas
+        this.drawTimelineGrid();
     }
     
-    createFrequencyIndicators() {
-        const container = document.getElementById('notesContainer');
+    drawTimelineGrid() {
+        const canvas = document.getElementById('timelineCanvas');
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Dibujar líneas horizontales para cada nota
+        const naturalNotes = this.noteFrequencies.filter(n => !n.isSharp);
+        const noteHeight = canvas.height / naturalNotes.length;
+        
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        
+        naturalNotes.forEach((note, index) => {
+            const y = index * noteHeight;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+            
+            // Etiquetas de notas en el lado izquierdo
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.font = '10px monospace';
+            ctx.fillText(note.note, 5, y + 15);
+        });
+        
+        // Líneas verticales de tiempo (cada segundo)
+        const secondWidth = canvas.width / 10; // 10 segundos de vista
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        
+        for (let i = 0; i < 11; i++) {
+            const x = i * secondWidth;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+    }
+    
+    createIndicators() {
+        const container = document.getElementById('timelineVisualization');
         if (!container) return;
         
-        // Línea azul para micrófono
-        const micLine = document.createElement('div');
-        micLine.id = 'micFrequencyLine';
-        micLine.style.cssText = `
-            position: absolute;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, #4a9eff, transparent);
-            box-shadow: 0 0 15px #4a9eff, 0 0 30px rgba(74, 158, 255, 0.5);
-            transition: top 0.1s ease-out;
-            display: none;
-            z-index: 10;
-        `;
-        container.appendChild(micLine);
-        
-        // Línea roja para YouTube/Sistema
-        const systemLine = document.createElement('div');
-        systemLine.id = 'systemFrequencyLine';
-        systemLine.style.cssText = `
-            position: absolute;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, #ff4a4a, transparent);
-            box-shadow: 0 0 15px #ff4a4a, 0 0 30px rgba(255, 74, 74, 0.5);
-            transition: top 0.1s ease-out;
-            display: none;
-            z-index: 9;
-        `;
-        container.appendChild(systemLine);
-        
-        // Indicador de diferencia
+        // Indicador de diferencia de pitch
         const diffIndicator = document.createElement('div');
         diffIndicator.id = 'pitchDifference';
         diffIndicator.style.cssText = `
@@ -401,7 +407,10 @@ class HybridOfflinePitchMonitor {
     
     startMonitoring() {
         this.isMonitoring = true;
+        this.timelineStartTime = Date.now();
+        this.timelineData = [];
         console.log('Iniciando monitoreo de pitch...');
+        this.createIndicators(); // Crear indicadores después del timeline
         this.animate();
     }
     
@@ -419,6 +428,7 @@ class HybridOfflinePitchMonitor {
         
         let micPitch = null;
         let systemPitch = null;
+        const currentTime = Date.now();
         
         // Análisis del micrófono
         if (this.micAnalyser) {
@@ -427,11 +437,9 @@ class HybridOfflinePitchMonitor {
                 const note = this.frequencyToNote(micPitch);
                 document.getElementById('userNote').textContent = note.note;
                 document.getElementById('userFreq').textContent = `${micPitch.toFixed(1)} Hz`;
-                this.updateFrequencyLine('micFrequencyLine', micPitch);
             } else {
                 document.getElementById('userNote').textContent = '--';
                 document.getElementById('userFreq').textContent = '0 Hz';
-                this.hideFrequencyLine('micFrequencyLine');
             }
         }
         
@@ -442,11 +450,9 @@ class HybridOfflinePitchMonitor {
                 const note = this.frequencyToNote(systemPitch);
                 document.getElementById('videoNote').textContent = note.note;
                 document.getElementById('videoFreq').textContent = `${systemPitch.toFixed(1)} Hz`;
-                this.updateFrequencyLine('systemFrequencyLine', systemPitch);
             } else {
                 document.getElementById('videoNote').textContent = '--';
                 document.getElementById('videoFreq').textContent = '0 Hz';
-                this.hideFrequencyLine('systemFrequencyLine');
             }
             
             // Dibujar espectro del sistema
@@ -456,38 +462,105 @@ class HybridOfflinePitchMonitor {
             this.drawFrequencySpectrum(this.micAnalyser, 'frequencyCanvas');
         }
         
+        // Agregar punto al timeline
+        if (micPitch > 0 || systemPitch > 0) {
+            this.timelineData.push({
+                time: currentTime - this.timelineStartTime,
+                micFreq: micPitch,
+                systemFreq: systemPitch
+            });
+            
+            // Limitar el tamaño del timeline
+            if (this.timelineData.length > this.maxTimelinePoints) {
+                this.timelineData.shift();
+            }
+        }
+        
+        // Dibujar timeline
+        this.drawTimeline();
+        
         // Actualizar indicador de diferencia
         this.updatePitchDifference(micPitch, systemPitch);
         this.updateMatchLevel();
     }
     
-    updateFrequencyLine(lineId, frequency) {
-        const line = document.getElementById(lineId);
-        if (!line) return;
+    drawTimeline() {
+        const canvas = document.getElementById('timelineCanvas');
+        if (!canvas) return;
         
-        const container = document.getElementById('notesContainer');
-        if (!container) return;
+        const ctx = canvas.getContext('2d');
         
-        // Calcular posición vertical basada en la frecuencia
+        // Limpiar y redibujar grid
+        this.drawTimelineGrid();
+        
+        // Configurar para dibujar las líneas de pitch
+        const width = canvas.width;
+        const height = canvas.height;
+        const centerX = width / 2;
+        
+        // Escala de tiempo: 10 segundos de vista
+        const timeScale = width / 10000; // pixels por milisegundo
+        
+        // Dibujar líneas de pitch
+        if (this.timelineData.length > 1) {
+            // Línea azul para micrófono
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#4a9eff';
+            ctx.beginPath();
+            
+            let firstMic = true;
+            this.timelineData.forEach(point => {
+                if (point.micFreq && point.micFreq > 0) {
+                    const x = centerX + (point.time - (Date.now() - this.timelineStartTime)) * timeScale;
+                    const y = this.frequencyToY(point.micFreq, height);
+                    
+                    if (firstMic) {
+                        ctx.moveTo(x, y);
+                        firstMic = false;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+            });
+            ctx.stroke();
+            
+            // Línea roja para YouTube/sistema
+            ctx.strokeStyle = '#ff4a4a';
+            ctx.shadowColor = '#ff4a4a';
+            ctx.beginPath();
+            
+            let firstSystem = true;
+            this.timelineData.forEach(point => {
+                if (point.systemFreq && point.systemFreq > 0) {
+                    const x = centerX + (point.time - (Date.now() - this.timelineStartTime)) * timeScale;
+                    const y = this.frequencyToY(point.systemFreq, height);
+                    
+                    if (firstSystem) {
+                        ctx.moveTo(x, y);
+                        firstSystem = false;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+            });
+            ctx.stroke();
+            
+            ctx.shadowBlur = 0;
+        }
+    }
+    
+    frequencyToY(frequency, canvasHeight) {
         const minFreq = 65.41; // C2
         const maxFreq = 1975.53; // B6
         const logMin = Math.log2(minFreq);
         const logMax = Math.log2(maxFreq);
         const logFreq = Math.log2(frequency);
         
-        const containerHeight = 560;
-        const position = ((logMax - logFreq) / (logMax - logMin)) * containerHeight + 20;
-        
-        line.style.display = 'block';
-        line.style.top = `${position}px`;
+        return ((logMax - logFreq) / (logMax - logMin)) * canvasHeight;
     }
     
-    hideFrequencyLine(lineId) {
-        const line = document.getElementById(lineId);
-        if (line) {
-            line.style.display = 'none';
-        }
-    }
     
     updatePitchDifference(micPitch, systemPitch) {
         const indicator = document.getElementById('pitchDifference');
