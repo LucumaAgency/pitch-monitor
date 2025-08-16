@@ -22,8 +22,170 @@ class HybridOfflinePitchMonitor {
         
         this.noteStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         
+        // Frecuencias de notas para visualización (C3 a B5)
+        this.noteFrequencies = this.generateNoteFrequencies();
+        
         this.initializeEventListeners();
         this.updateUI();
+        this.createPianoVisualization();
+    }
+    
+    generateNoteFrequencies() {
+        const frequencies = [];
+        const A4 = 440;
+        
+        // Generar notas desde C2 hasta B6 (5 octavas)
+        for (let octave = 2; octave <= 6; octave++) {
+            for (let note = 0; note < 12; note++) {
+                const halfSteps = (octave - 4) * 12 + note - 9; // A4 está 9 semitonos sobre C4
+                const freq = A4 * Math.pow(2, halfSteps / 12);
+                frequencies.push({
+                    note: this.noteStrings[note] + octave,
+                    frequency: freq,
+                    isSharp: this.noteStrings[note].includes('#')
+                });
+            }
+        }
+        
+        return frequencies;
+    }
+    
+    createPianoVisualization() {
+        // Reemplazar el canvas de waveform con visualización de piano
+        const waveformCanvas = document.getElementById('waveformCanvas');
+        if (waveformCanvas && waveformCanvas.parentNode) {
+            // Crear contenedor para el piano
+            const pianoContainer = document.createElement('div');
+            pianoContainer.id = 'pianoVisualization';
+            pianoContainer.style.cssText = `
+                width: 100%;
+                height: 300px;
+                background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+                border-radius: 8px;
+                position: relative;
+                overflow: hidden;
+                display: flex;
+                align-items: center;
+            `;
+            
+            // Crear el contenedor de notas
+            const notesContainer = document.createElement('div');
+            notesContainer.id = 'notesContainer';
+            notesContainer.style.cssText = `
+                width: 100%;
+                height: 100%;
+                position: relative;
+                padding: 20px 0;
+            `;
+            
+            pianoContainer.appendChild(notesContainer);
+            waveformCanvas.parentNode.replaceChild(pianoContainer, waveformCanvas);
+            
+            // Dibujar las líneas de notas
+            this.drawNoteLines();
+        }
+    }
+    
+    drawNoteLines() {
+        const container = document.getElementById('notesContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        // Filtrar solo notas naturales para simplificar la visualización
+        const naturalNotes = this.noteFrequencies.filter(n => !n.isSharp);
+        const containerHeight = 260; // altura menos padding
+        const noteHeight = containerHeight / naturalNotes.length;
+        
+        naturalNotes.forEach((note, index) => {
+            const noteElement = document.createElement('div');
+            noteElement.className = 'note-line';
+            noteElement.dataset.frequency = note.frequency;
+            noteElement.style.cssText = `
+                position: absolute;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: rgba(255, 255, 255, 0.1);
+                top: ${index * noteHeight + 20}px;
+                display: flex;
+                align-items: center;
+            `;
+            
+            // Etiqueta de nota
+            const label = document.createElement('span');
+            label.style.cssText = `
+                position: absolute;
+                left: 10px;
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 10px;
+                font-family: monospace;
+                background: rgba(0, 0, 0, 0.5);
+                padding: 2px 5px;
+                border-radius: 3px;
+            `;
+            label.textContent = note.note;
+            noteElement.appendChild(label);
+            
+            container.appendChild(noteElement);
+        });
+        
+        // Crear indicadores de frecuencia (líneas móviles)
+        this.createFrequencyIndicators();
+    }
+    
+    createFrequencyIndicators() {
+        const container = document.getElementById('notesContainer');
+        if (!container) return;
+        
+        // Línea azul para micrófono
+        const micLine = document.createElement('div');
+        micLine.id = 'micFrequencyLine';
+        micLine.style.cssText = `
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #4a9eff, transparent);
+            box-shadow: 0 0 10px #4a9eff;
+            transition: top 0.1s ease-out;
+            display: none;
+            z-index: 10;
+        `;
+        container.appendChild(micLine);
+        
+        // Línea roja para YouTube/Sistema
+        const systemLine = document.createElement('div');
+        systemLine.id = 'systemFrequencyLine';
+        systemLine.style.cssText = `
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #ff4a4a, transparent);
+            box-shadow: 0 0 10px #ff4a4a;
+            transition: top 0.1s ease-out;
+            display: none;
+            z-index: 9;
+        `;
+        container.appendChild(systemLine);
+        
+        // Indicador de diferencia
+        const diffIndicator = document.createElement('div');
+        diffIndicator.id = 'pitchDifference';
+        diffIndicator.style.cssText = `
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            color: white;
+            font-family: monospace;
+            font-size: 14px;
+            z-index: 20;
+        `;
+        container.appendChild(diffIndicator);
     }
     
     updateUI() {
@@ -231,31 +393,36 @@ class HybridOfflinePitchMonitor {
         
         this.rafId = requestAnimationFrame(() => this.animate());
         
+        let micPitch = null;
+        let systemPitch = null;
+        
         // Análisis del micrófono
         if (this.micAnalyser) {
-            const micPitch = this.detectPitch(this.micAnalyser, 'mic');
+            micPitch = this.detectPitch(this.micAnalyser, 'mic');
             if (micPitch && micPitch > 0) {
                 const note = this.frequencyToNote(micPitch);
                 document.getElementById('userNote').textContent = note.note;
                 document.getElementById('userFreq').textContent = `${micPitch.toFixed(1)} Hz`;
+                this.updateFrequencyLine('micFrequencyLine', micPitch);
             } else {
                 document.getElementById('userNote').textContent = '--';
                 document.getElementById('userFreq').textContent = '0 Hz';
+                this.hideFrequencyLine('micFrequencyLine');
             }
-            
-            this.drawWaveform(this.micAnalyser, 'waveformCanvas');
         }
         
         // Análisis del sistema/YouTube
         if (this.systemAnalyser) {
-            const systemPitch = this.detectPitch(this.systemAnalyser, 'system');
+            systemPitch = this.detectPitch(this.systemAnalyser, 'system');
             if (systemPitch && systemPitch > 0) {
                 const note = this.frequencyToNote(systemPitch);
                 document.getElementById('videoNote').textContent = note.note;
                 document.getElementById('videoFreq').textContent = `${systemPitch.toFixed(1)} Hz`;
+                this.updateFrequencyLine('systemFrequencyLine', systemPitch);
             } else {
                 document.getElementById('videoNote').textContent = '--';
                 document.getElementById('videoFreq').textContent = '0 Hz';
+                this.hideFrequencyLine('systemFrequencyLine');
             }
             
             // Dibujar espectro del sistema
@@ -265,7 +432,86 @@ class HybridOfflinePitchMonitor {
             this.drawFrequencySpectrum(this.micAnalyser, 'frequencyCanvas');
         }
         
+        // Actualizar indicador de diferencia
+        this.updatePitchDifference(micPitch, systemPitch);
         this.updateMatchLevel();
+    }
+    
+    updateFrequencyLine(lineId, frequency) {
+        const line = document.getElementById(lineId);
+        if (!line) return;
+        
+        const container = document.getElementById('notesContainer');
+        if (!container) return;
+        
+        // Calcular posición vertical basada en la frecuencia
+        const minFreq = 65.41; // C2
+        const maxFreq = 1975.53; // B6
+        const logMin = Math.log2(minFreq);
+        const logMax = Math.log2(maxFreq);
+        const logFreq = Math.log2(frequency);
+        
+        const containerHeight = 260;
+        const position = ((logMax - logFreq) / (logMax - logMin)) * containerHeight + 20;
+        
+        line.style.display = 'block';
+        line.style.top = `${position}px`;
+    }
+    
+    hideFrequencyLine(lineId) {
+        const line = document.getElementById(lineId);
+        if (line) {
+            line.style.display = 'none';
+        }
+    }
+    
+    updatePitchDifference(micPitch, systemPitch) {
+        const indicator = document.getElementById('pitchDifference');
+        if (!indicator) return;
+        
+        if (micPitch && micPitch > 0 && systemPitch && systemPitch > 0) {
+            const cents = 1200 * Math.log2(micPitch / systemPitch);
+            let message = '';
+            let color = '';
+            
+            if (Math.abs(cents) < 10) {
+                message = '✅ ¡Perfecto!';
+                color = '#4ade80';
+            } else if (cents > 0) {
+                const semitones = Math.abs(cents / 100).toFixed(1);
+                message = `⬇️ Baja ${semitones} semitonos`;
+                color = '#fbbf24';
+            } else {
+                const semitones = Math.abs(cents / 100).toFixed(1);
+                message = `⬆️ Sube ${semitones} semitonos`;
+                color = '#60a5fa';
+            }
+            
+            indicator.innerHTML = `
+                <div style="color: ${color}; font-weight: bold;">${message}</div>
+                <div style="color: #888; font-size: 12px; margin-top: 5px;">
+                    Diferencia: ${cents.toFixed(0)} cents
+                </div>
+            `;
+        } else if (micPitch && micPitch > 0) {
+            indicator.innerHTML = `
+                <div style="color: #4a9eff;">🎤 Tu nota</div>
+                <div style="color: #888; font-size: 12px; margin-top: 5px;">
+                    Esperando YouTube...
+                </div>
+            `;
+        } else if (systemPitch && systemPitch > 0) {
+            indicator.innerHTML = `
+                <div style="color: #ff4a4a;">🎵 YouTube</div>
+                <div style="color: #888; font-size: 12px; margin-top: 5px;">
+                    Canta para comparar
+                </div>
+            `;
+        } else {
+            indicator.innerHTML = `
+                <div style="color: #666;">🎹 Esperando audio...</div>
+            `;
+        }
     }
     
     detectPitch(analyser, source = '') {
@@ -355,45 +601,6 @@ class HybridOfflinePitchMonitor {
         return { note: '--', cents: 0 };
     }
     
-    drawWaveform(analyser, canvasId) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        const bufferLength = analyser.fftSize;
-        const dataArray = new Uint8Array(bufferLength);
-        
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-        
-        analyser.getByteTimeDomainData(dataArray);
-        
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#667eea';
-        ctx.beginPath();
-        
-        const sliceWidth = canvas.width / bufferLength;
-        let x = 0;
-        
-        for (let i = 0; i < bufferLength; i++) {
-            const v = dataArray[i] / 128.0;
-            const y = v * canvas.height / 2;
-            
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-            
-            x += sliceWidth;
-        }
-        
-        ctx.lineTo(canvas.width, canvas.height / 2);
-        ctx.stroke();
-    }
     
     drawFrequencySpectrum(analyser, canvasId) {
         const canvas = document.getElementById(canvasId);
