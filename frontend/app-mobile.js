@@ -493,7 +493,7 @@ function initializePitchMonitor() {
     } else {
         // En desktop cargar el híbrido de forma dinámica
         const script = document.createElement('script');
-        script.src = 'app-hybrid-offline.js?v=8';
+        script.src = 'app-hybrid-offline.js?v=9';
         script.onload = () => {
             // Verificar si la clase está disponible
             if (typeof HybridOfflinePitchMonitor !== 'undefined') {

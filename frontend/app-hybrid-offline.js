@@ -59,7 +59,7 @@ class HybridOfflinePitchMonitor {
             pianoContainer.id = 'pianoVisualization';
             pianoContainer.style.cssText = `
                 width: 100%;
-                height: 300px;
+                height: 600px;
                 background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
                 border-radius: 8px;
                 position: relative;
@@ -92,12 +92,12 @@ class HybridOfflinePitchMonitor {
         
         container.innerHTML = '';
         
-        // Filtrar solo notas naturales para simplificar la visualización
-        const naturalNotes = this.noteFrequencies.filter(n => !n.isSharp);
-        const containerHeight = 260; // altura menos padding
-        const noteHeight = containerHeight / naturalNotes.length;
+        // Mostrar todas las notas (naturales y sostenidos) para mejor precisión
+        const allNotes = this.noteFrequencies;
+        const containerHeight = 560; // altura menos padding (600 - 40)
+        const noteHeight = containerHeight / allNotes.length;
         
-        naturalNotes.forEach((note, index) => {
+        allNotes.forEach((note, index) => {
             const noteElement = document.createElement('div');
             noteElement.className = 'note-line';
             noteElement.dataset.frequency = note.frequency;
@@ -106,26 +106,29 @@ class HybridOfflinePitchMonitor {
                 left: 0;
                 right: 0;
                 height: 1px;
-                background: rgba(255, 255, 255, 0.1);
+                background: ${note.isSharp ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.15)'};
                 top: ${index * noteHeight + 20}px;
                 display: flex;
                 align-items: center;
             `;
             
-            // Etiqueta de nota
-            const label = document.createElement('span');
-            label.style.cssText = `
-                position: absolute;
-                left: 10px;
-                color: rgba(255, 255, 255, 0.5);
-                font-size: 10px;
-                font-family: monospace;
-                background: rgba(0, 0, 0, 0.5);
-                padding: 2px 5px;
-                border-radius: 3px;
-            `;
-            label.textContent = note.note;
-            noteElement.appendChild(label);
+            // Etiqueta de nota (solo para notas naturales para no saturar)
+            if (!note.isSharp) {
+                const label = document.createElement('span');
+                label.style.cssText = `
+                    position: absolute;
+                    left: 10px;
+                    color: rgba(255, 255, 255, 0.6);
+                    font-size: 11px;
+                    font-weight: bold;
+                    font-family: monospace;
+                    background: rgba(0, 0, 0, 0.7);
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                `;
+                label.textContent = note.note;
+                noteElement.appendChild(label);
+            }
             
             container.appendChild(noteElement);
         });
@@ -145,9 +148,9 @@ class HybridOfflinePitchMonitor {
             position: absolute;
             left: 0;
             right: 0;
-            height: 3px;
+            height: 4px;
             background: linear-gradient(90deg, transparent, #4a9eff, transparent);
-            box-shadow: 0 0 10px #4a9eff;
+            box-shadow: 0 0 15px #4a9eff, 0 0 30px rgba(74, 158, 255, 0.5);
             transition: top 0.1s ease-out;
             display: none;
             z-index: 10;
@@ -161,9 +164,9 @@ class HybridOfflinePitchMonitor {
             position: absolute;
             left: 0;
             right: 0;
-            height: 3px;
+            height: 4px;
             background: linear-gradient(90deg, transparent, #ff4a4a, transparent);
-            box-shadow: 0 0 10px #ff4a4a;
+            box-shadow: 0 0 15px #ff4a4a, 0 0 30px rgba(255, 74, 74, 0.5);
             transition: top 0.1s ease-out;
             display: none;
             z-index: 9;
@@ -451,7 +454,7 @@ class HybridOfflinePitchMonitor {
         const logMax = Math.log2(maxFreq);
         const logFreq = Math.log2(frequency);
         
-        const containerHeight = 260;
+        const containerHeight = 560;
         const position = ((logMax - logFreq) / (logMax - logMin)) * containerHeight + 20;
         
         line.style.display = 'block';
