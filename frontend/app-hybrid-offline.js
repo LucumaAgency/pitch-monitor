@@ -242,14 +242,23 @@ class HybridOfflinePitchMonitor {
             font-family: monospace;
             font-size: 12px;
             z-index: 20;
-            width: 200px;
+            width: 220px;
         `;
         filterControl.innerHTML = `
-            <div style="margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                 <label style="display: flex; align-items: center; cursor: pointer;">
                     <input type="checkbox" id="vocalFilterToggle" checked style="margin-right: 5px;">
                     <span>🎚️ Filtro Vocal</span>
                 </label>
+                <button id="filterHelpBtn" style="
+                    background: #667eea;
+                    border: none;
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 10px;
+                ">❓ Ayuda</button>
             </div>
             <div style="margin-bottom: 8px;">
                 <label style="font-size: 10px; color: #888;">Frecuencia baja (Hz)</label>
@@ -257,20 +266,182 @@ class HybridOfflinePitchMonitor {
                        style="width: 100%; height: 20px;">
                 <span id="lowFreqValue" style="font-size: 10px;">80 Hz</span>
             </div>
-            <div>
+            <div style="margin-bottom: 8px;">
                 <label style="font-size: 10px; color: #888;">Frecuencia alta (Hz)</label>
                 <input type="range" id="highFreqSlider" min="800" max="2000" value="1000" 
                        style="width: 100%; height: 20px;">
                 <span id="highFreqValue" style="font-size: 10px;">1000 Hz</span>
             </div>
+            <div id="filterPresets" style="margin-top: 10px;">
+                <label style="font-size: 10px; color: #888; display: block; margin-bottom: 5px;">Presets rápidos:</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                    <button class="preset-btn" data-low="60" data-high="800" style="
+                        padding: 4px;
+                        font-size: 10px;
+                        background: #444;
+                        color: white;
+                        border: 1px solid #666;
+                        border-radius: 3px;
+                        cursor: pointer;
+                    ">👨 Voz Masculina</button>
+                    <button class="preset-btn" data-low="150" data-high="1500" style="
+                        padding: 4px;
+                        font-size: 10px;
+                        background: #444;
+                        color: white;
+                        border: 1px solid #666;
+                        border-radius: 3px;
+                        cursor: pointer;
+                    ">👩 Voz Femenina</button>
+                    <button class="preset-btn" data-low="80" data-high="1000" style="
+                        padding: 4px;
+                        font-size: 10px;
+                        background: #444;
+                        color: white;
+                        border: 1px solid #666;
+                        border-radius: 3px;
+                        cursor: pointer;
+                    ">🎵 Balanceado</button>
+                    <button class="preset-btn" data-low="100" data-high="2000" style="
+                        padding: 4px;
+                        font-size: 10px;
+                        background: #444;
+                        color: white;
+                        border: 1px solid #666;
+                        border-radius: 3px;
+                        cursor: pointer;
+                    ">🎤 Acapella</button>
+                </div>
+            </div>
         `;
         container.appendChild(filterControl);
+        
+        // Modal de ayuda
+        const helpModal = document.createElement('div');
+        helpModal.id = 'filterHelpModal';
+        helpModal.style.cssText = `
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            z-index: 1000;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        `;
+        helpModal.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; color: #667eea;">🎚️ Guía del Filtro Vocal</h2>
+                <button id="closeHelpBtn" style="
+                    background: #ff4a4a;
+                    border: none;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-weight: bold;
+                ">✕</button>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #4a9eff; margin-bottom: 10px;">📊 ¿Qué es el Filtro Vocal?</h3>
+                <p style="line-height: 1.6; color: #ddd;">
+                    El filtro vocal aísla las frecuencias de la voz humana, eliminando instrumentos musicales.
+                    Funciona como un "ecualizador inteligente" que solo deja pasar las frecuencias donde típicamente está la voz.
+                </p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #4a9eff; margin-bottom: 10px;">🎵 Rangos de Frecuencia</h3>
+                <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px;">
+                    <p style="margin: 5px 0;"><strong style="color: #ffd93d;">Graves (< 80 Hz):</strong> Bajo, bombo, subgraves</p>
+                    <p style="margin: 5px 0;"><strong style="color: #6bcf7f;">Voz masculina:</strong> 80-500 Hz (fundamental)</p>
+                    <p style="margin: 5px 0;"><strong style="color: #ff6b6b;">Voz femenina:</strong> 150-1000 Hz (fundamental)</p>
+                    <p style="margin: 5px 0;"><strong style="color: #e056fd;">Armónicos vocales:</strong> 500-2000 Hz</p>
+                    <p style="margin: 5px 0;"><strong style="color: #95afc0;">Agudos (> 2000 Hz):</strong> Platillos, hi-hat, brillo</p>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #4a9eff; margin-bottom: 10px;">⚙️ Cómo Ajustar</h3>
+                <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px;">
+                    <p style="margin: 8px 0;"><strong>Frecuencia Baja:</strong></p>
+                    <ul style="margin: 5px 0 15px 20px;">
+                        <li>⬇️ <strong>Bajar (60 Hz):</strong> Para voces masculinas graves o Barry White</li>
+                        <li>⬆️ <strong>Subir (150 Hz):</strong> Para voces femeninas o eliminar más bajo</li>
+                    </ul>
+                    
+                    <p style="margin: 8px 0;"><strong>Frecuencia Alta:</strong></p>
+                    <ul style="margin: 5px 0 15px 20px;">
+                        <li>⬇️ <strong>Bajar (800 Hz):</strong> Enfocarse solo en la fundamental</li>
+                        <li>⬆️ <strong>Subir (1500 Hz):</strong> Incluir más armónicos y claridad</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #4a9eff; margin-bottom: 10px;">🎯 Configuraciones Recomendadas</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="background: rgba(102, 126, 234, 0.2); padding: 10px; border-radius: 6px;">
+                        <strong>Rock/Pop con banda:</strong><br>
+                        Bajo: 100 Hz | Alto: 800 Hz<br>
+                        <small>Elimina bajo y batería</small>
+                    </div>
+                    <div style="background: rgba(102, 126, 234, 0.2); padding: 10px; border-radius: 6px;">
+                        <strong>Baladas/Acústico:</strong><br>
+                        Bajo: 80 Hz | Alto: 1200 Hz<br>
+                        <small>Rango más amplio</small>
+                    </div>
+                    <div style="background: rgba(102, 126, 234, 0.2); padding: 10px; border-radius: 6px;">
+                        <strong>Rap/Hip-Hop:</strong><br>
+                        Bajo: 60 Hz | Alto: 600 Hz<br>
+                        <small>Voces graves con beat</small>
+                    </div>
+                    <div style="background: rgba(102, 126, 234, 0.2); padding: 10px; border-radius: 6px;">
+                        <strong>Música electrónica:</strong><br>
+                        Bajo: 150 Hz | Alto: 1000 Hz<br>
+                        <small>Elimina bajos sintéticos</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #4a9eff; margin-bottom: 10px;">💡 Consejos</h3>
+                <ul style="line-height: 1.8; color: #ddd;">
+                    <li>🎤 <strong>Si no detecta tu voz:</strong> Amplía el rango (baja el mínimo, sube el máximo)</li>
+                    <li>🎸 <strong>Si detecta guitarras:</strong> Sube la frecuencia baja a 100-120 Hz</li>
+                    <li>🥁 <strong>Si detecta batería:</strong> Baja la frecuencia alta a 600-800 Hz</li>
+                    <li>🎹 <strong>Para piano con voz:</strong> Usa 150-1000 Hz (el piano es muy amplio)</li>
+                    <li>🎺 <strong>Con instrumentos de viento:</strong> Desactiva el filtro, son muy similares a la voz</li>
+                </ul>
+            </div>
+            
+            <div style="background: rgba(255, 193, 61, 0.2); padding: 15px; border-radius: 8px;">
+                <p style="margin: 0; color: #ffd93d;">
+                    <strong>⚡ Pro Tip:</strong> Empieza con el preset "Balanceado" y ajusta según lo que escuches. 
+                    Si la línea roja (YouTube) desaparece mucho, el filtro está muy agresivo.
+                </p>
+            </div>
+        `;
+        document.body.appendChild(helpModal);
         
         // Agregar event listeners para los controles
         setTimeout(() => {
             const toggle = document.getElementById('vocalFilterToggle');
             const lowSlider = document.getElementById('lowFreqSlider');
             const highSlider = document.getElementById('highFreqSlider');
+            const helpBtn = document.getElementById('filterHelpBtn');
+            const closeBtn = document.getElementById('closeHelpBtn');
+            const modal = document.getElementById('filterHelpModal');
             
             if (toggle) {
                 toggle.addEventListener('change', (e) => {
@@ -292,6 +463,52 @@ class HybridOfflinePitchMonitor {
                     this.vocalRange.high = parseInt(e.target.value);
                     document.getElementById('highFreqValue').textContent = `${e.target.value} Hz`;
                     this.updateFilters();
+                });
+            }
+            
+            // Botones de preset
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const low = parseInt(e.target.dataset.low);
+                    const high = parseInt(e.target.dataset.high);
+                    
+                    this.vocalRange.low = low;
+                    this.vocalRange.high = high;
+                    
+                    document.getElementById('lowFreqSlider').value = low;
+                    document.getElementById('highFreqSlider').value = high;
+                    document.getElementById('lowFreqValue').textContent = `${low} Hz`;
+                    document.getElementById('highFreqValue').textContent = `${high} Hz`;
+                    
+                    this.updateFilters();
+                    
+                    // Feedback visual
+                    e.target.style.background = '#667eea';
+                    setTimeout(() => {
+                        e.target.style.background = '#444';
+                    }, 500);
+                });
+            });
+            
+            // Modal de ayuda
+            if (helpBtn && modal) {
+                helpBtn.addEventListener('click', () => {
+                    modal.style.display = 'block';
+                });
+            }
+            
+            if (closeBtn && modal) {
+                closeBtn.addEventListener('click', () => {
+                    modal.style.display = 'none';
+                });
+            }
+            
+            // Cerrar modal al hacer clic fuera
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.style.display = 'none';
+                    }
                 });
             }
         }, 100);
