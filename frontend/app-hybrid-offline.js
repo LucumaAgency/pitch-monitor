@@ -17,6 +17,10 @@ class HybridOfflinePitchMonitor {
         this.systemAnalyser = null;
         this.systemSource = null;
         
+        // Filtros para aislar voz
+        this.systemFilter = null;
+        this.micFilter = null;
+        
         this.isMonitoring = false;
         this.rafId = null;
         
@@ -29,6 +33,13 @@ class HybridOfflinePitchMonitor {
         this.timelineData = [];
         this.maxTimelinePoints = 200; // Puntos máximos en el timeline
         this.timelineStartTime = null;
+        
+        // Configuración del filtro vocal
+        this.vocalFilterEnabled = true;
+        this.vocalRange = {
+            low: 80,   // Hz - Bajo de voz masculina
+            high: 1000 // Hz - Alto de voz femenina
+        };
         
         this.initializeEventListeners();
         this.updateUI();
@@ -216,6 +227,90 @@ class HybridOfflinePitchMonitor {
             <div>🎵 YouTube: <span id="systemLevel">--</span></div>
         `;
         container.appendChild(audioLevel);
+        
+        // Control de filtro vocal
+        const filterControl = document.createElement('div');
+        filterControl.id = 'filterControl';
+        filterControl.style.cssText = `
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 8px;
+            color: white;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 20;
+            width: 200px;
+        `;
+        filterControl.innerHTML = `
+            <div style="margin-bottom: 10px;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="vocalFilterToggle" checked style="margin-right: 5px;">
+                    <span>🎚️ Filtro Vocal</span>
+                </label>
+            </div>
+            <div style="margin-bottom: 8px;">
+                <label style="font-size: 10px; color: #888;">Frecuencia baja (Hz)</label>
+                <input type="range" id="lowFreqSlider" min="60" max="200" value="80" 
+                       style="width: 100%; height: 20px;">
+                <span id="lowFreqValue" style="font-size: 10px;">80 Hz</span>
+            </div>
+            <div>
+                <label style="font-size: 10px; color: #888;">Frecuencia alta (Hz)</label>
+                <input type="range" id="highFreqSlider" min="800" max="2000" value="1000" 
+                       style="width: 100%; height: 20px;">
+                <span id="highFreqValue" style="font-size: 10px;">1000 Hz</span>
+            </div>
+        `;
+        container.appendChild(filterControl);
+        
+        // Agregar event listeners para los controles
+        setTimeout(() => {
+            const toggle = document.getElementById('vocalFilterToggle');
+            const lowSlider = document.getElementById('lowFreqSlider');
+            const highSlider = document.getElementById('highFreqSlider');
+            
+            if (toggle) {
+                toggle.addEventListener('change', (e) => {
+                    this.vocalFilterEnabled = e.target.checked;
+                    this.updateFilters();
+                });
+            }
+            
+            if (lowSlider) {
+                lowSlider.addEventListener('input', (e) => {
+                    this.vocalRange.low = parseInt(e.target.value);
+                    document.getElementById('lowFreqValue').textContent = `${e.target.value} Hz`;
+                    this.updateFilters();
+                });
+            }
+            
+            if (highSlider) {
+                highSlider.addEventListener('input', (e) => {
+                    this.vocalRange.high = parseInt(e.target.value);
+                    document.getElementById('highFreqValue').textContent = `${e.target.value} Hz`;
+                    this.updateFilters();
+                });
+            }
+        }, 100);
+    }
+    
+    updateFilters() {
+        // Actualizar filtros del sistema si están activos
+        if (this.systemFilter) {
+            this.systemFilter.highpass.frequency.value = this.vocalRange.low;
+            this.systemFilter.lowpass.frequency.value = this.vocalRange.high;
+        }
+        
+        // Actualizar filtros del micrófono si están activos
+        if (this.micFilter) {
+            this.micFilter.highpass.frequency.value = this.vocalRange.low;
+            this.micFilter.lowpass.frequency.value = this.vocalRange.high;
+        }
+        
+        console.log(`Filtro vocal actualizado: ${this.vocalRange.low}Hz - ${this.vocalRange.high}Hz`);
     }
     
     updateUI() {
@@ -307,6 +402,45 @@ class HybridOfflinePitchMonitor {
         }
     }
     
+    createVocalFilter(source, isSystem = false) {
+        if (!this.audioContext) return null;
+        
+        // Crear cadena de filtros para aislar voz
+        const filters = {};
+        
+        // 1. Filtro pasa-alto (elimina graves < 80Hz)
+        filters.highpass = this.audioContext.createBiquadFilter();
+        filters.highpass.type = 'highpass';
+        filters.highpass.frequency.value = this.vocalRange.low;
+        filters.highpass.Q.value = 0.7;
+        
+        // 2. Filtro pasa-bajo (elimina agudos > 1000Hz)
+        filters.lowpass = this.audioContext.createBiquadFilter();
+        filters.lowpass.type = 'lowpass';
+        filters.lowpass.frequency.value = this.vocalRange.high;
+        filters.lowpass.Q.value = 0.7;
+        
+        // 3. Filtro de realce de medios (boost 200-600Hz donde está la fundamental vocal)
+        filters.peaking = this.audioContext.createBiquadFilter();
+        filters.peaking.type = 'peaking';
+        filters.peaking.frequency.value = 350; // Centro del rango vocal
+        filters.peaking.Q.value = 0.5;
+        filters.peaking.gain.value = 6; // +6dB de ganancia
+        
+        // 4. Filtro notch para eliminar 50/60Hz (ruido eléctrico)
+        filters.notch = this.audioContext.createBiquadFilter();
+        filters.notch.type = 'notch';
+        filters.notch.frequency.value = 60;
+        filters.notch.Q.value = 30;
+        
+        // Conectar filtros en cadena
+        filters.highpass.connect(filters.lowpass);
+        filters.lowpass.connect(filters.peaking);
+        filters.peaking.connect(filters.notch);
+        
+        return filters;
+    }
+    
     async captureSystemAudio() {
         try {
             this.updateStatus('📌 Selecciona la pestaña de YouTube y marca "Compartir audio de la pestaña"', 'info');
@@ -342,10 +476,17 @@ class HybridOfflinePitchMonitor {
             // Configurar análisis del audio del sistema
             this.systemSource = this.audioContext.createMediaStreamSource(this.systemStream);
             this.systemAnalyser = this.audioContext.createAnalyser();
-            this.systemAnalyser.fftSize = 4096;
-            this.systemAnalyser.smoothingTimeConstant = 0.8;
+            this.systemAnalyser.fftSize = 8192; // Más resolución para mejor detección
+            this.systemAnalyser.smoothingTimeConstant = 0.85;
             
-            this.systemSource.connect(this.systemAnalyser);
+            // Aplicar filtro vocal si está habilitado
+            if (this.vocalFilterEnabled) {
+                this.systemFilter = this.createVocalFilter(this.systemSource, true);
+                this.systemSource.connect(this.systemFilter.highpass);
+                this.systemFilter.notch.connect(this.systemAnalyser);
+            } else {
+                this.systemSource.connect(this.systemAnalyser);
+            }
             
             // Cambiar el botón
             const loadBtn = document.getElementById('loadYoutube');
@@ -624,8 +765,7 @@ class HybridOfflinePitchMonitor {
         rms = Math.sqrt(rms / buffer.length);
         
         // Threshold mucho más bajo para YouTube/sistema
-        // YouTube a menudo tiene audio más bajo que el micrófono
-        const threshold = source === 'system' ? 0.001 : 0.008;
+        const threshold = source === 'system' ? 0.0005 : 0.008;
         
         // Actualizar indicador de nivel de audio
         if (source === 'system') {
@@ -646,15 +786,77 @@ class HybridOfflinePitchMonitor {
         
         if (rms < threshold) return -1;
         
-        // Para audio del sistema, intentar autocorrelación si YIN falla
+        // Para sistema con filtro, usar detección espectral mejorada
+        if (source === 'system' && this.vocalFilterEnabled) {
+            const spectralPitch = this.detectPitchSpectral(analyser);
+            if (spectralPitch > 0) return spectralPitch;
+        }
+        
+        // Intentar YIN primero
         const pitch = this.YINDetector(buffer, this.audioContext.sampleRate);
         
         // Si YIN no detecta nada pero hay audio, intentar autocorrelación
-        if (pitch === -1 && source === 'system' && rms > threshold) {
-            return this.autocorrelate(buffer, this.audioContext.sampleRate);
+        if (pitch === -1 && rms > threshold) {
+            const autoPitch = this.autocorrelate(buffer, this.audioContext.sampleRate);
+            if (autoPitch > 0) return autoPitch;
+            
+            // Como último recurso, usar análisis espectral
+            if (source === 'system') {
+                return this.detectPitchSpectral(analyser);
+            }
         }
         
         return pitch;
+    }
+    
+    // Método de detección espectral para audio complejo
+    detectPitchSpectral(analyser) {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Float32Array(bufferLength);
+        analyser.getFloatFrequencyData(dataArray);
+        
+        const sampleRate = this.audioContext.sampleRate;
+        const binSize = sampleRate / (bufferLength * 2);
+        
+        // Buscar picos en el rango vocal (80-1000 Hz)
+        const minBin = Math.floor(80 / binSize);
+        const maxBin = Math.floor(1000 / binSize);
+        
+        let maxAmplitude = -Infinity;
+        let dominantBin = 0;
+        
+        // Aplicar ventana de suavizado
+        const smoothWindow = 3;
+        for (let i = minBin; i < maxBin; i++) {
+            let sum = 0;
+            let count = 0;
+            
+            for (let j = Math.max(minBin, i - smoothWindow); j <= Math.min(maxBin, i + smoothWindow); j++) {
+                sum += dataArray[j];
+                count++;
+            }
+            
+            const smoothedValue = sum / count;
+            
+            if (smoothedValue > maxAmplitude && smoothedValue > -60) { // -60dB threshold
+                maxAmplitude = smoothedValue;
+                dominantBin = i;
+            }
+        }
+        
+        if (dominantBin > 0 && maxAmplitude > -60) {
+            // Refinar con interpolación parabólica
+            const y1 = dataArray[dominantBin - 1];
+            const y2 = dataArray[dominantBin];
+            const y3 = dataArray[dominantBin + 1];
+            
+            const x0 = (y3 - y1) / (2 * (2 * y2 - y1 - y3));
+            const refinedBin = dominantBin + x0;
+            
+            return refinedBin * binSize;
+        }
+        
+        return -1;
     }
     
     YINDetector(buffer, sampleRate) {
