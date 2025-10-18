@@ -1341,19 +1341,25 @@ class HybridOfflinePitchMonitor {
     }
     
     updateMatchLevel() {
-        const userNote = document.getElementById('userNote').textContent;
-        const videoNote = document.getElementById('videoNote').textContent;
-        
-        if (userNote !== '--' && videoNote !== '--') {
+        const videoNoteEl = document.getElementById('videoNote');
+        const matchLevelEl = document.getElementById('matchLevel');
+
+        // Si no existen los elementos (versión móvil), salir
+        if (!videoNoteEl || !matchLevelEl) return;
+
+        const userNote = document.getElementById('userNote')?.textContent;
+        const videoNote = videoNoteEl.textContent;
+
+        if (userNote && userNote !== '--' && videoNote !== '--') {
             const userFreq = parseFloat(document.getElementById('userFreq').textContent);
             const videoFreq = parseFloat(document.getElementById('videoFreq').textContent);
-            
+
             const difference = Math.abs(userFreq - videoFreq);
             const maxDifference = 50;
             const matchPercentage = Math.max(0, 100 - (difference / maxDifference * 100));
-            
-            document.getElementById('matchLevel').style.width = matchPercentage + '%';
-            
+
+            matchLevelEl.style.width = matchPercentage + '%';
+
             if (matchPercentage > 90) {
                 this.updateStatus('🎯 ¡Excelente! Estás afinado', 'success');
             } else if (matchPercentage > 70) {
