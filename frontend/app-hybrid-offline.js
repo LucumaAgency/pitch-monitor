@@ -43,7 +43,8 @@ class HybridOfflinePitchMonitor {
         
         this.initializeEventListeners();
         this.updateUI();
-        this.createTimelineVisualization();
+        // Timeline removed - showing pitch guidance in "Tu Nota" section instead
+        // this.createTimelineVisualization();
     }
     
     generateNoteFrequencies() {
@@ -795,9 +796,38 @@ class HybridOfflinePitchMonitor {
                 const note = this.frequencyToNote(micPitch);
                 document.getElementById('userNote').textContent = note.note;
                 document.getElementById('userFreq').textContent = `${micPitch.toFixed(1)} Hz`;
+
+                // Mostrar cents
+                const centsEl = document.getElementById('userCents');
+                if (centsEl) {
+                    const centsSign = note.cents >= 0 ? '+' : '';
+                    centsEl.textContent = `${centsSign}${note.cents} cents`;
+                }
+
+                // Mostrar dirección de pitch
+                const pitchDirEl = document.getElementById('pitchDirection');
+                if (pitchDirEl) {
+                    if (Math.abs(note.cents) <= 10) {
+                        pitchDirEl.textContent = '✅ Perfecto';
+                        pitchDirEl.className = 'pitch-direction perfect';
+                    } else if (note.cents > 10) {
+                        pitchDirEl.textContent = '⬇️ Bajar';
+                        pitchDirEl.className = 'pitch-direction high';
+                    } else {
+                        pitchDirEl.textContent = '⬆️ Subir';
+                        pitchDirEl.className = 'pitch-direction low';
+                    }
+                }
             } else {
                 document.getElementById('userNote').textContent = '--';
                 document.getElementById('userFreq').textContent = '0 Hz';
+                const centsEl = document.getElementById('userCents');
+                if (centsEl) centsEl.textContent = '±0 cents';
+                const pitchDirEl = document.getElementById('pitchDirection');
+                if (pitchDirEl) {
+                    pitchDirEl.textContent = '';
+                    pitchDirEl.className = 'pitch-direction';
+                }
             }
         }
         
@@ -820,22 +850,22 @@ class HybridOfflinePitchMonitor {
             this.drawFrequencySpectrum(this.micAnalyser, 'frequencyCanvas');
         }
         
-        // Agregar punto al timeline
-        if (micPitch > 0 || systemPitch > 0) {
-            this.timelineData.push({
-                time: currentTime - this.timelineStartTime,
-                micFreq: micPitch,
-                systemFreq: systemPitch
-            });
-            
-            // Limitar el tamaño del timeline
-            if (this.timelineData.length > this.maxTimelinePoints) {
-                this.timelineData.shift();
-            }
-        }
-        
+        // Timeline removed - data tracking disabled
+        // if (micPitch > 0 || systemPitch > 0) {
+        //     this.timelineData.push({
+        //         time: currentTime - this.timelineStartTime,
+        //         micFreq: micPitch,
+        //         systemFreq: systemPitch
+        //     });
+        //
+        //     // Limitar el tamaño del timeline
+        //     if (this.timelineData.length > this.maxTimelinePoints) {
+        //         this.timelineData.shift();
+        //     }
+        // }
+
         // Dibujar timeline
-        this.drawTimeline();
+        // this.drawTimeline();
         
         // Actualizar indicador de diferencia
         this.updatePitchDifference(micPitch, systemPitch);

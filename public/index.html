@@ -125,6 +125,39 @@
             color: #666;
             margin-top: 10px;
         }
+
+        .cents {
+            font-size: 1em;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .pitch-direction {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pitch-direction.high {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .pitch-direction.low {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .pitch-direction.perfect {
+            background: #d4edda;
+            color: #155724;
+        }
         
         .match-indicator {
             width: 100%;
@@ -166,53 +199,11 @@
             background: #e3f2fd;
             color: #1565c0;
         }
-        
-        .video-container {
-            background: #f7f7f7;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        #youtubePlayer {
-            width: 100%;
-            aspect-ratio: 16/9;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .video-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-top: 15px;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-        }
-        
-        .video-controls button {
-            width: auto;
-            padding: 8px 16px;
-            font-size: 14px;
-        }
-        
-        #volumeSlider {
-            width: 150px;
-            padding: 0;
-        }
-        
-        #timeDisplay {
-            margin-left: auto;
-            font-family: monospace;
-            color: #666;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎵 Pitch Monitor v6</h1>
+        <h1>🎵 Pitch Monitor v10</h1>
         
         <div class="controls">
             <div class="control-group">
@@ -222,22 +213,11 @@
             </div>
             
             <div class="control-group">
-                <h3>📺 YouTube</h3>
-                <input type="text" id="youtubeUrl" placeholder="URL del video de YouTube">
-                <button id="loadYoutube">Cargar Video</button>
+                <h3>⚙️ Configuración</h3>
+                <button id="loadYoutube">🎧 Capturar Audio de Pestaña</button>
             </div>
         </div>
-        
-        <div class="video-container">
-            <div id="youtubePlayer"></div>
-            <div class="video-controls" id="videoControls" style="display: none;">
-                <button id="playPause">▶️ Play</button>
-                <button id="muteUnmute">🔇 Mute</button>
-                <input type="range" id="volumeSlider" min="0" max="100" value="50">
-                <span id="timeDisplay">00:00 / 00:00</span>
-            </div>
-        </div>
-        
+
         <div class="visualizer">
             <h3>📊 Visualización de Audio</h3>
             <canvas id="waveformCanvas"></canvas>
@@ -249,8 +229,10 @@
                 <h3>🎤 Tu Nota</h3>
                 <div class="note" id="userNote">--</div>
                 <div class="frequency" id="userFreq">0 Hz</div>
+                <div class="cents" id="userCents">±0 cents</div>
+                <div class="pitch-direction" id="pitchDirection"></div>
             </div>
-            
+
             <div class="pitch-box">
                 <h3>📺 Nota del Video</h3>
                 <div class="note" id="videoNote">--</div>

@@ -43,7 +43,8 @@ class HybridOfflinePitchMonitor {
         
         this.initializeEventListeners();
         this.updateUI();
-        this.createTimelineVisualization();
+        // Timeline removed - showing pitch guidance in "Tu Nota" section instead
+        // this.createTimelineVisualization();
     }
     
     generateNoteFrequencies() {
@@ -795,9 +796,38 @@ class HybridOfflinePitchMonitor {
                 const note = this.frequencyToNote(micPitch);
                 document.getElementById('userNote').textContent = note.note;
                 document.getElementById('userFreq').textContent = `${micPitch.toFixed(1)} Hz`;
+
+                // Mostrar cents
+                const centsEl = document.getElementById('userCents');
+                if (centsEl) {
+                    const centsSign = note.cents >= 0 ? '+' : '';
+                    centsEl.textContent = `${centsSign}${note.cents} cents`;
+                }
+
+                // Mostrar dirección de pitch
+                const pitchDirEl = document.getElementById('pitchDirection');
+                if (pitchDirEl) {
+                    if (Math.abs(note.cents) <= 10) {
+                        pitchDirEl.textContent = '✅ Perfecto';
+                        pitchDirEl.className = 'pitch-direction perfect';
+                    } else if (note.cents > 10) {
+                        pitchDirEl.textContent = '⬇️ Bajar';
+                        pitchDirEl.className = 'pitch-direction high';
+                    } else {
+                        pitchDirEl.textContent = '⬆️ Subir';
+                        pitchDirEl.className = 'pitch-direction low';
+                    }
+                }
             } else {
                 document.getElementById('userNote').textContent = '--';
                 document.getElementById('userFreq').textContent = '0 Hz';
+                const centsEl = document.getElementById('userCents');
+                if (centsEl) centsEl.textContent = '±0 cents';
+                const pitchDirEl = document.getElementById('pitchDirection');
+                if (pitchDirEl) {
+                    pitchDirEl.textContent = '';
+                    pitchDirEl.className = 'pitch-direction';
+                }
             }
         }
         
@@ -820,22 +850,22 @@ class HybridOfflinePitchMonitor {
             this.drawFrequencySpectrum(this.micAnalyser, 'frequencyCanvas');
         }
         
-        // Agregar punto al timeline
-        if (micPitch > 0 || systemPitch > 0) {
-            this.timelineData.push({
-                time: currentTime - this.timelineStartTime,
-                micFreq: micPitch,
-                systemFreq: systemPitch
-            });
-            
-            // Limitar el tamaño del timeline
-            if (this.timelineData.length > this.maxTimelinePoints) {
-                this.timelineData.shift();
-            }
-        }
-        
+        // Timeline removed - data tracking disabled
+        // if (micPitch > 0 || systemPitch > 0) {
+        //     this.timelineData.push({
+        //         time: currentTime - this.timelineStartTime,
+        //         micFreq: micPitch,
+        //         systemFreq: systemPitch
+        //     });
+        //
+        //     // Limitar el tamaño del timeline
+        //     if (this.timelineData.length > this.maxTimelinePoints) {
+        //         this.timelineData.shift();
+        //     }
+        // }
+
         // Dibujar timeline
-        this.drawTimeline();
+        // this.drawTimeline();
         
         // Actualizar indicador de diferencia
         this.updatePitchDifference(micPitch, systemPitch);
@@ -910,13 +940,37 @@ class HybridOfflinePitchMonitor {
     }
     
     frequencyToY(frequency, canvasHeight) {
-        const minFreq = 65.41; // C2
-        const maxFreq = 1975.53; // B6
-        const logMin = Math.log2(minFreq);
-        const logMax = Math.log2(maxFreq);
-        const logFreq = Math.log2(frequency);
-        
-        return ((logMax - logFreq) / (logMax - logMin)) * canvasHeight;
+        // Convertir frecuencia a nota primero
+        const noteObj = this.frequencyToNote(frequency);
+        if (noteObj.note === '--') return canvasHeight / 2;
+
+        // Usar noteToY para obtener posición basada en nota discreta
+        return this.noteToY(noteObj.note, canvasHeight);
+    }
+
+    noteToY(noteName, canvasHeight) {
+        // Mapeo de notas a semitonos desde C2 (índice 0)
+        const noteMap = {
+            'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5,
+            'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
+        };
+
+        // Extraer nota y octava (ej: "C5" -> nota="C", octave=5)
+        const match = noteName.match(/^([A-G]#?)(\d+)$/);
+        if (!match) return canvasHeight / 2;
+
+        const [, note, octaveStr] = match;
+        const octave = parseInt(octaveStr);
+
+        // Calcular semitonos desde C2 (octava 2)
+        const semitonesFromC2 = (octave - 2) * 12 + noteMap[note];
+
+        // Rango: C2 (0) a B6 (59 semitonos)
+        const minSemitone = 0;
+        const maxSemitone = 59;
+
+        // Invertir para que notas altas estén arriba
+        return ((maxSemitone - semitonesFromC2) / maxSemitone) * canvasHeight;
     }
     
     
