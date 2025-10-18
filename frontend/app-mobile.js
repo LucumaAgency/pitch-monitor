@@ -365,11 +365,11 @@ class MobilePitchMonitor {
 
         // Log RMS cada 30 frames (más frecuente para debug)
         if (this.frameCount % 30 === 0) {
-            this.addDebugLine(`RMS: ${rms.toFixed(6)} ${rms < 0.001 ? '❌ (bajo)' : '✅'}`);
+            this.addDebugLine(`RMS: ${rms.toFixed(6)} ${rms < 0.0003 ? '❌ (bajo)' : '✅'}`);
         }
 
-        // Umbral más bajo para mejor sensibilidad
-        if (rms < 0.001) return -1;
+        // Umbral MUY bajo para máxima sensibilidad en móvil
+        if (rms < 0.0003) return -1;
 
         // Usar autocorrelación simple para móvil (más rápido)
         const pitch = this.autocorrelate(buffer, this.audioContext.sampleRate);
