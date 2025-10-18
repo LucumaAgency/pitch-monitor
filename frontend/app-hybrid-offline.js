@@ -910,13 +910,37 @@ class HybridOfflinePitchMonitor {
     }
     
     frequencyToY(frequency, canvasHeight) {
-        const minFreq = 65.41; // C2
-        const maxFreq = 1975.53; // B6
-        const logMin = Math.log2(minFreq);
-        const logMax = Math.log2(maxFreq);
-        const logFreq = Math.log2(frequency);
-        
-        return ((logMax - logFreq) / (logMax - logMin)) * canvasHeight;
+        // Convertir frecuencia a nota primero
+        const noteObj = this.frequencyToNote(frequency);
+        if (noteObj.note === '--') return canvasHeight / 2;
+
+        // Usar noteToY para obtener posición basada en nota discreta
+        return this.noteToY(noteObj.note, canvasHeight);
+    }
+
+    noteToY(noteName, canvasHeight) {
+        // Mapeo de notas a semitonos desde C2 (índice 0)
+        const noteMap = {
+            'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5,
+            'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
+        };
+
+        // Extraer nota y octava (ej: "C5" -> nota="C", octave=5)
+        const match = noteName.match(/^([A-G]#?)(\d+)$/);
+        if (!match) return canvasHeight / 2;
+
+        const [, note, octaveStr] = match;
+        const octave = parseInt(octaveStr);
+
+        // Calcular semitonos desde C2 (octava 2)
+        const semitonesFromC2 = (octave - 2) * 12 + noteMap[note];
+
+        // Rango: C2 (0) a B6 (59 semitonos)
+        const minSemitone = 0;
+        const maxSemitone = 59;
+
+        // Invertir para que notas altas estén arriba
+        return ((maxSemitone - semitonesFromC2) / maxSemitone) * canvasHeight;
     }
     
     
