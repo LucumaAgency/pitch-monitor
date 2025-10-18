@@ -1165,18 +1165,19 @@ class HybridOfflinePitchMonitor {
     frequencyToNote(frequency) {
         const A4 = 440;
         const C0 = A4 * Math.pow(2, -4.75);
-        
+
         if (frequency > 0) {
             const halfStepsBelowMiddleC = 12 * Math.log2(frequency / C0);
-            const octave = Math.floor(halfStepsBelowMiddleC / 12);
-            const noteIndex = Math.round(halfStepsBelowMiddleC) % 12;
-            
+            const roundedHalfSteps = Math.round(halfStepsBelowMiddleC);
+            const octave = Math.floor(roundedHalfSteps / 12);
+            const noteIndex = roundedHalfSteps % 12;
+
             return {
                 note: this.noteStrings[noteIndex] + octave,
-                cents: Math.round((halfStepsBelowMiddleC - Math.round(halfStepsBelowMiddleC)) * 100)
+                cents: Math.round((halfStepsBelowMiddleC - roundedHalfSteps) * 100)
             };
         }
-        
+
         return { note: '--', cents: 0 };
     }
     
