@@ -39,7 +39,7 @@
         
         .controls {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -211,7 +211,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎵 Pitch Monitor v11</h1>
+        <h1>🎵 Pitch Monitor v12</h1>
         
         <div class="controls">
             <div class="control-group">
@@ -219,40 +219,23 @@
                 <button id="startMic">Iniciar Micrófono</button>
                 <button id="stopMic" disabled>Detener Micrófono</button>
             </div>
-            
-            <div class="control-group">
-                <h3>⚙️ Configuración</h3>
-                <button id="loadYoutube">🎧 Capturar Audio de Pestaña</button>
-            </div>
         </div>
 
         <div class="visualizer">
             <h3>📊 Timeline de Notas</h3>
             <canvas id="waveformCanvas"></canvas>
-            <h3 style="margin-top: 20px;">🎼 Espectro de Frecuencias</h3>
-            <canvas id="frequencyCanvas"></canvas>
         </div>
-        
+
         <div class="pitch-display">
-            <div class="pitch-box">
+            <div class="pitch-box" style="grid-column: 1 / -1;">
                 <h3>🎤 Tu Nota</h3>
                 <div class="note" id="userNote">--</div>
                 <div class="frequency" id="userFreq">0 Hz</div>
                 <div class="cents" id="userCents">±0 cents</div>
                 <div class="pitch-direction" id="pitchDirection"></div>
             </div>
+        </div>
 
-            <div class="pitch-box">
-                <h3>📺 Nota del Video</h3>
-                <div class="note" id="videoNote">--</div>
-                <div class="frequency" id="videoFreq">0 Hz</div>
-            </div>
-        </div>
-        
-        <div class="match-indicator">
-            <div class="match-level" id="matchLevel"></div>
-        </div>
-        
         <div class="status info" id="status">
             Sistema listo. Haz clic en "Iniciar Micrófono" para comenzar.
         </div>
