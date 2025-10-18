@@ -31,7 +31,7 @@ class HybridOfflinePitchMonitor {
         
         // Timeline data
         this.timelineData = [];
-        this.maxTimelinePoints = 200; // Puntos máximos en el timeline
+        this.maxTimelinePoints = 600; // 600 puntos = ~10 segundos a 60fps
         this.timelineStartTime = null;
         
         // Configuración del filtro vocal

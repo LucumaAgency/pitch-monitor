@@ -22,7 +22,7 @@ class MobilePitchMonitor {
 
         // Timeline data
         this.timelineData = [];
-        this.maxTimelinePoints = 200;
+        this.maxTimelinePoints = 600; // 600 puntos = ~10 segundos a 60fps
         this.timelineStartTime = null;
 
         // Debug info
