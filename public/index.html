@@ -211,7 +211,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎵 Pitch Monitor v16</h1>
+        <h1>🎵 Pitch Monitor v17</h1>
         
         <div class="controls">
             <div class="control-group">
@@ -252,7 +252,18 @@
             max-height: 200px;
             overflow-y: auto;
         ">
-            <div style="font-weight: bold; color: #ffff00; margin-bottom: 5px;">🔍 DEBUG INFO</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <span style="font-weight: bold; color: #ffff00;">🔍 DEBUG INFO</span>
+                <button id="copyDebugBtn" style="
+                    padding: 5px 10px;
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 11px;
+                ">📋 Copiar</button>
+            </div>
             <div id="debugContent">Esperando inicio...</div>
         </div>
     </div>

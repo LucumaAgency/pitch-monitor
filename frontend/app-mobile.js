@@ -44,6 +44,21 @@ class MobilePitchMonitor {
     initializeEventListeners() {
         document.getElementById('startMic').addEventListener('click', () => this.startMicrophone());
         document.getElementById('stopMic').addEventListener('click', () => this.stopMicrophone());
+
+        // Botón copiar debug
+        document.getElementById('copyDebugBtn').addEventListener('click', () => {
+            const text = this.debugLines.join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyDebugBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copiado!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                this.addDebugLine('Error al copiar: ' + err);
+            });
+        });
     }
     
     async startMicrophone() {
@@ -406,21 +421,26 @@ class MobilePitchMonitor {
             correlations[offset] = correlation;
         }
 
-        // Buscar el primer pico significativo
+        // Buscar el primer pico significativo (reducido umbral)
         for (let offset = 1; offset < MAX_SAMPLES; offset++) {
-            if (correlations[offset] > 0.7 && correlations[offset] > bestCorrelation) {
+            if (correlations[offset] > 0.5 && correlations[offset] > bestCorrelation) {
                 // Verificar que sea un pico local
                 const isPeak = offset > 0 && offset < MAX_SAMPLES - 1 &&
                              correlations[offset] > correlations[offset - 1] &&
                              correlations[offset] > correlations[offset + 1];
 
-                if (isPeak || correlations[offset] > 0.9) {
+                if (isPeak || correlations[offset] > 0.8) {
                     bestCorrelation = correlations[offset];
                     bestOffset = offset;
                     foundGoodCorrelation = true;
                     break; // Usar el primer buen pico
                 }
             }
+        }
+
+        // Debug cada 60 frames
+        if (this.frameCount % 60 === 0) {
+            this.addDebugLine(`Autocorr: best=${bestCorrelation.toFixed(3)} offset=${bestOffset}`);
         }
 
         if (foundGoodCorrelation && bestOffset > 0) {
@@ -438,6 +458,8 @@ class MobilePitchMonitor {
             // Validar que la frecuencia esté en rango vocal (80Hz - 1000Hz)
             if (frequency >= 80 && frequency <= 1000) {
                 return frequency;
+            } else if (this.frameCount % 60 === 0) {
+                this.addDebugLine(`Freq fuera rango: ${frequency.toFixed(1)} Hz`);
             }
         }
 
