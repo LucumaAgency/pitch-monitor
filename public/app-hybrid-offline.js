@@ -850,81 +850,74 @@ class HybridOfflinePitchMonitor {
             this.drawFrequencySpectrum(this.micAnalyser, 'frequencyCanvas');
         }
         
-        // Timeline removed - data tracking disabled
-        // if (micPitch > 0 || systemPitch > 0) {
-        //     this.timelineData.push({
-        //         time: currentTime - this.timelineStartTime,
-        //         micFreq: micPitch,
-        //         systemFreq: systemPitch
-        //     });
-        //
-        //     // Limitar el tamaño del timeline
-        //     if (this.timelineData.length > this.maxTimelinePoints) {
-        //         this.timelineData.shift();
-        //     }
-        // }
+        // Agregar punto al timeline
+        if (!this.timelineStartTime) {
+            this.timelineStartTime = currentTime;
+        }
 
-        // Dibujar timeline
-        // this.drawTimeline();
+        this.timelineData.push({
+            time: currentTime - this.timelineStartTime,
+            micFreq: micPitch > 0 ? micPitch : null,
+            systemFreq: systemPitch > 0 ? systemPitch : null
+        });
+
+        // Limitar el tamaño del timeline (últimos 10 segundos)
+        if (this.timelineData.length > this.maxTimelinePoints) {
+            this.timelineData.shift();
+        }
+
+        // Dibujar timeline de notas
+        this.drawNoteTimeline();
         
         // Actualizar indicador de diferencia
         this.updatePitchDifference(micPitch, systemPitch);
         this.updateMatchLevel();
     }
     
-    drawTimeline() {
-        const canvas = document.getElementById('timelineCanvas');
+    drawNoteTimeline() {
+        const canvas = document.getElementById('waveformCanvas');
         if (!canvas) return;
-        
+
         const ctx = canvas.getContext('2d');
-        
-        // Limpiar y redibujar grid
-        this.drawTimelineGrid();
-        
-        // Configurar para dibujar las líneas de pitch
+
+        // Configurar dimensiones
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
         const width = canvas.width;
         const height = canvas.height;
-        const centerX = width / 2;
-        
-        // Escala de tiempo: 10 segundos de vista
-        const timeScale = width / 10000; // pixels por milisegundo
-        
+
+        // Fondo
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, width, height);
+
+        // Dibujar grid de notas
+        this.drawNoteGrid(ctx, width, height);
+
+        // Si no hay datos, salir
+        if (this.timelineData.length < 2) return;
+
+        // Calcular escala de tiempo (últimos 10 segundos visibles)
+        const currentTime = Date.now() - this.timelineStartTime;
+        const timeWindow = 10000; // 10 segundos en milisegundos
+        const timeStart = Math.max(0, currentTime - timeWindow);
+
         // Dibujar líneas de pitch
-        if (this.timelineData.length > 1) {
-            // Línea azul para micrófono
-            ctx.strokeStyle = '#4a9eff';
-            ctx.lineWidth = 2;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#4a9eff';
-            ctx.beginPath();
-            
-            let firstMic = true;
-            this.timelineData.forEach(point => {
-                if (point.micFreq && point.micFreq > 0) {
-                    const x = centerX + (point.time - (Date.now() - this.timelineStartTime)) * timeScale;
-                    const y = this.frequencyToY(point.micFreq, height);
-                    
-                    if (firstMic) {
-                        ctx.moveTo(x, y);
-                        firstMic = false;
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                }
-            });
-            ctx.stroke();
-            
-            // Línea roja para YouTube/sistema
-            ctx.strokeStyle = '#ff4a4a';
-            ctx.shadowColor = '#ff4a4a';
-            ctx.beginPath();
-            
-            let firstSystem = true;
-            this.timelineData.forEach(point => {
-                if (point.systemFreq && point.systemFreq > 0) {
-                    const x = centerX + (point.time - (Date.now() - this.timelineStartTime)) * timeScale;
+        ctx.lineWidth = 3;
+
+        // Línea de la canción (verde/amarillo)
+        ctx.strokeStyle = '#6bcf7f';
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#6bcf7f';
+        ctx.beginPath();
+
+        let firstSystem = true;
+        this.timelineData.forEach(point => {
+            if (point.systemFreq && point.systemFreq > 0) {
+                const x = ((point.time - timeStart) / timeWindow) * width;
+                if (x >= 0 && x <= width) {
                     const y = this.frequencyToY(point.systemFreq, height);
-                    
+
                     if (firstSystem) {
                         ctx.moveTo(x, y);
                         firstSystem = false;
@@ -932,11 +925,88 @@ class HybridOfflinePitchMonitor {
                         ctx.lineTo(x, y);
                     }
                 }
+            }
+        });
+        ctx.stroke();
+
+        // Línea de tu voz (azul/morado)
+        ctx.strokeStyle = '#667eea';
+        ctx.shadowColor = '#667eea';
+        ctx.beginPath();
+
+        let firstMic = true;
+        this.timelineData.forEach(point => {
+            if (point.micFreq && point.micFreq > 0) {
+                const x = ((point.time - timeStart) / timeWindow) * width;
+                if (x >= 0 && x <= width) {
+                    const y = this.frequencyToY(point.micFreq, height);
+
+                    if (firstMic) {
+                        ctx.moveTo(x, y);
+                        firstMic = false;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+            }
+        });
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+
+        // Línea vertical del tiempo actual (lado derecho)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(width - 1, 0);
+        ctx.lineTo(width - 1, height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Leyenda
+        ctx.font = '12px monospace';
+        ctx.fillStyle = '#667eea';
+        ctx.fillText('🎤 Tu Voz', 10, 20);
+        ctx.fillStyle = '#6bcf7f';
+        ctx.fillText('🎵 Canción', 10, 35);
+    }
+
+    drawNoteGrid(ctx, width, height) {
+        // Rango de notas: C2 a B6 (5 octavas = 60 semitonos)
+        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const octaves = [2, 3, 4, 5, 6];
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.font = '10px monospace';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+
+        // Dibujar líneas horizontales para cada nota
+        octaves.forEach(octave => {
+            notes.forEach((note, noteIndex) => {
+                const noteName = note + octave;
+                const y = this.noteToY(noteName, height);
+
+                // Línea horizontal
+                if (note === 'C') {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Línea más visible para C
+                } else {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+
+                // Etiqueta de nota (solo para C, E, G)
+                if (note === 'C' || note === 'E' || note === 'G') {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.fillText(noteName, 5, y - 2);
+                }
             });
-            ctx.stroke();
-            
-            ctx.shadowBlur = 0;
-        }
+        });
     }
     
     frequencyToY(frequency, canvasHeight) {
