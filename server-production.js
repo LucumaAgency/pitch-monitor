@@ -1,4 +1,4 @@
-// SERVIDOR DE PRODUCCIÓN - Sirve desde public/
+// SERVIDOR DE PRODUCCIÓN - Sirve desde frontend/
 const express = require('express');
 const cors = require('cors');
 const ytdl = require('ytdl-core');
@@ -85,27 +85,27 @@ app.get('/api/youtube-stream/:videoId', (req, res) => {
 });
 
 // ====================================
-// SERVE STATIC FILES FROM PUBLIC
+// SERVE STATIC FILES FROM FRONTEND
 // ====================================
 
-const publicPath = path.join(__dirname, 'public');
-console.log('Public directory:', publicPath);
-console.log('Public exists?', fs.existsSync(publicPath));
+const frontendPath = path.join(__dirname, 'frontend');
+console.log('Frontend directory:', frontendPath);
+console.log('Frontend exists?', fs.existsSync(frontendPath));
 
-if (fs.existsSync(publicPath)) {
-    // Servir archivos estáticos desde public/
-    app.use(express.static(publicPath));
-    
+if (fs.existsSync(frontendPath)) {
+    // Servir archivos estáticos desde frontend/
+    app.use(express.static(frontendPath));
+
     // SPA fallback
     app.get('*', (req, res) => {
-        res.sendFile(path.join(publicPath, 'index.html'));
+        res.sendFile(path.join(frontendPath, 'index.html'));
     });
 } else {
-    // Si no existe public/, mostrar mensaje
+    // Si no existe frontend/, mostrar mensaje
     app.get('/', (req, res) => {
         res.send(`
             <h1>Build Required</h1>
-            <p>Public directory not found. Run: node build.js</p>
+            <p>Frontend directory not found.</p>
             <p>API Status: <a href="/api/health">Check Health</a></p>
         `);
     });
@@ -117,7 +117,7 @@ const server = require('http').createServer(app);
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
     console.log('📍 APIs available at /api/*');
-    console.log('📁 Static files served from /public');
+    console.log('📁 Static files served from /frontend');
     console.log('🔍 Test: http://localhost:' + PORT + '/api/health');
 });
 
