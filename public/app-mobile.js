@@ -409,6 +409,12 @@ class MobilePitchMonitor {
         let foundGoodCorrelation = false;
         const correlations = new Array(MAX_SAMPLES);
 
+        // Calcular límites de offset basados en frecuencias vocales
+        // Frecuencia máxima: 1000 Hz → offset mínimo
+        // Frecuencia mínima: 80 Hz → offset máximo
+        const MIN_OFFSET = Math.floor(sampleRate / 1000); // ~48 para 48kHz
+        const MAX_OFFSET = Math.floor(sampleRate / 80);   // ~600 para 48kHz
+
         // Calcular autocorrelación para cada offset
         for (let offset = 0; offset < MAX_SAMPLES; offset++) {
             let correlation = 0;
@@ -421,11 +427,11 @@ class MobilePitchMonitor {
             correlations[offset] = correlation;
         }
 
-        // Buscar el primer pico significativo (reducido umbral)
-        for (let offset = 1; offset < MAX_SAMPLES; offset++) {
+        // Buscar el primer pico significativo DESPUÉS del offset mínimo
+        for (let offset = MIN_OFFSET; offset < Math.min(MAX_OFFSET, MAX_SAMPLES); offset++) {
             if (correlations[offset] > 0.5 && correlations[offset] > bestCorrelation) {
                 // Verificar que sea un pico local
-                const isPeak = offset > 0 && offset < MAX_SAMPLES - 1 &&
+                const isPeak = offset > MIN_OFFSET && offset < MAX_SAMPLES - 1 &&
                              correlations[offset] > correlations[offset - 1] &&
                              correlations[offset] > correlations[offset + 1];
 
@@ -440,7 +446,7 @@ class MobilePitchMonitor {
 
         // Debug cada 60 frames
         if (this.frameCount % 60 === 0) {
-            this.addDebugLine(`Autocorr: best=${bestCorrelation.toFixed(3)} offset=${bestOffset}`);
+            this.addDebugLine(`Autocorr: best=${bestCorrelation.toFixed(3)} offset=${bestOffset} (rango:${MIN_OFFSET}-${MAX_OFFSET})`);
         }
 
         if (foundGoodCorrelation && bestOffset > 0) {
