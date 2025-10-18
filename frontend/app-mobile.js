@@ -285,16 +285,38 @@ class MobilePitchMonitor {
     
     animate() {
         if (!this.isMonitoring) return;
-        
+
         this.rafId = requestAnimationFrame(() => this.animate());
-        
+
         if (this.micAnalyser) {
             const micPitch = this.detectPitch(this.micAnalyser);
             if (micPitch && micPitch > 0) {
                 const note = this.frequencyToNote(micPitch);
                 document.getElementById('userNote').textContent = note.note;
                 document.getElementById('userFreq').textContent = `${micPitch.toFixed(1)} Hz`;
-                
+
+                // Mostrar cents
+                const centsEl = document.getElementById('userCents');
+                if (centsEl) {
+                    const centsSign = note.cents >= 0 ? '+' : '';
+                    centsEl.textContent = `${centsSign}${note.cents} cents`;
+                }
+
+                // Mostrar dirección de pitch
+                const pitchDirEl = document.getElementById('pitchDirection');
+                if (pitchDirEl) {
+                    if (Math.abs(note.cents) <= 10) {
+                        pitchDirEl.textContent = '✅ Perfecto';
+                        pitchDirEl.className = 'pitch-direction perfect';
+                    } else if (note.cents > 10) {
+                        pitchDirEl.textContent = '⬇️ Bajar';
+                        pitchDirEl.className = 'pitch-direction high';
+                    } else {
+                        pitchDirEl.textContent = '⬆️ Subir';
+                        pitchDirEl.className = 'pitch-direction low';
+                    }
+                }
+
                 // Si hay nota de referencia, comparar
                 if (this.currentReferenceNote) {
                     this.compareWithReference(micPitch);
@@ -302,8 +324,15 @@ class MobilePitchMonitor {
             } else {
                 document.getElementById('userNote').textContent = '--';
                 document.getElementById('userFreq').textContent = '0 Hz';
+                const centsEl = document.getElementById('userCents');
+                if (centsEl) centsEl.textContent = '±0 cents';
+                const pitchDirEl = document.getElementById('pitchDirection');
+                if (pitchDirEl) {
+                    pitchDirEl.textContent = '';
+                    pitchDirEl.className = 'pitch-direction';
+                }
             }
-            
+
             this.drawWaveform(this.micAnalyser);
             this.drawFrequencySpectrum(this.micAnalyser);
         }
@@ -387,18 +416,19 @@ class MobilePitchMonitor {
     frequencyToNote(frequency) {
         const A4 = 440;
         const C0 = A4 * Math.pow(2, -4.75);
-        
+
         if (frequency > 0) {
             const halfStepsBelowMiddleC = 12 * Math.log2(frequency / C0);
-            const octave = Math.floor(halfStepsBelowMiddleC / 12);
-            const noteIndex = Math.round(halfStepsBelowMiddleC) % 12;
-            
+            const roundedHalfSteps = Math.round(halfStepsBelowMiddleC);
+            const octave = Math.floor(roundedHalfSteps / 12);
+            const noteIndex = roundedHalfSteps % 12;
+
             return {
                 note: this.noteStrings[noteIndex] + octave,
-                cents: Math.round((halfStepsBelowMiddleC - Math.round(halfStepsBelowMiddleC)) * 100)
+                cents: Math.round((halfStepsBelowMiddleC - roundedHalfSteps) * 100)
             };
         }
-        
+
         return { note: '--', cents: 0 };
     }
     

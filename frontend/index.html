@@ -125,6 +125,39 @@
             color: #666;
             margin-top: 10px;
         }
+
+        .cents {
+            font-size: 1em;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .pitch-direction {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pitch-direction.high {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .pitch-direction.low {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .pitch-direction.perfect {
+            background: #d4edda;
+            color: #155724;
+        }
         
         .match-indicator {
             width: 100%;
@@ -170,7 +203,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎵 Pitch Monitor v9</h1>
+        <h1>🎵 Pitch Monitor v10</h1>
         
         <div class="controls">
             <div class="control-group">
@@ -196,8 +229,10 @@
                 <h3>🎤 Tu Nota</h3>
                 <div class="note" id="userNote">--</div>
                 <div class="frequency" id="userFreq">0 Hz</div>
+                <div class="cents" id="userCents">±0 cents</div>
+                <div class="pitch-direction" id="pitchDirection"></div>
             </div>
-            
+
             <div class="pitch-box">
                 <h3>📺 Nota del Video</h3>
                 <div class="note" id="videoNote">--</div>
