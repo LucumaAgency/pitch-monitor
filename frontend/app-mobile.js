@@ -9,6 +9,12 @@ class MobilePitchMonitor {
         this.micStream = null;
         this.micAnalyser = null;
         this.micSource = null;
+
+        // Audio interno del celular (música)
+        this.internalStream = null;
+        this.internalAnalyser = null;
+        this.internalSource = null;
+
         this.isMonitoring = false;
         this.rafId = null;
 
@@ -44,6 +50,10 @@ class MobilePitchMonitor {
     initializeEventListeners() {
         document.getElementById('startMic').addEventListener('click', () => this.startMicrophone());
         document.getElementById('stopMic').addEventListener('click', () => this.stopMicrophone());
+
+        // Botón para capturar audio interno
+        document.getElementById('startInternal').addEventListener('click', () => this.startInternalAudio());
+        document.getElementById('stopInternal').addEventListener('click', () => this.stopInternalAudio());
 
         // Botón copiar debug
         document.getElementById('copyDebugBtn').addEventListener('click', () => {
@@ -120,17 +130,117 @@ class MobilePitchMonitor {
             this.micStream.getTracks().forEach(track => track.stop());
             this.micStream = null;
         }
-        
+
         if (this.micSource) {
             this.micSource.disconnect();
             this.micSource = null;
         }
-        
+
         document.getElementById('startMic').disabled = false;
         document.getElementById('stopMic').disabled = true;
-        
+
         this.updateStatus('Micrófono detenido', 'info');
         this.stopMonitoring();
+    }
+
+    async startInternalAudio() {
+        try {
+            this.addDebugLine('🎵 Iniciando captura de audio interno...');
+
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.addDebugLine(`AudioContext: sampleRate=${this.audioContext.sampleRate}`);
+            }
+
+            // getDisplayMedia para capturar audio interno
+            // En Android Chrome esto permite capturar el audio del sistema
+            const constraints = {
+                video: false, // Solo queremos audio
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    channelCount: 2
+                }
+            };
+
+            this.addDebugLine('🔐 Solicitando permisos de captura...');
+
+            // Verificar si el navegador soporta getDisplayMedia
+            if (!navigator.mediaDevices.getDisplayMedia) {
+                throw new Error('getDisplayMedia no soportado en este navegador');
+            }
+
+            this.internalStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+            this.addDebugLine('✅ Permisos de captura concedidos');
+
+            // Verificar si hay pistas de audio
+            const audioTracks = this.internalStream.getAudioTracks();
+            if (audioTracks.length === 0) {
+                throw new Error('No se detectaron pistas de audio. Asegúrate de seleccionar "Compartir audio" en el diálogo.');
+            }
+
+            this.addDebugLine(`📊 Pistas de audio: ${audioTracks.length}`);
+            audioTracks.forEach((track, idx) => {
+                this.addDebugLine(`  Track ${idx}: ${track.label}`);
+            });
+
+            this.internalSource = this.audioContext.createMediaStreamSource(this.internalStream);
+            this.internalAnalyser = this.audioContext.createAnalyser();
+            this.internalAnalyser.fftSize = 4096;
+            this.internalAnalyser.smoothingTimeConstant = 0.3;
+
+            this.addDebugLine(`FFT Size: ${this.internalAnalyser.fftSize}`);
+
+            this.internalSource.connect(this.internalAnalyser);
+
+            document.getElementById('startInternal').disabled = true;
+            document.getElementById('stopInternal').disabled = false;
+
+            this.updateStatus('✅ Audio interno capturado. Reproduce música!', 'success');
+            this.addDebugLine('▶️ Monitoreando audio interno...');
+
+            // Si el micrófono no está activo, iniciar monitoreo
+            if (!this.isMonitoring) {
+                this.startMonitoring();
+            }
+
+        } catch (error) {
+            this.addDebugLine(`❌ ERROR: ${error.message}`);
+            console.error('Error al capturar audio interno:', error);
+
+            let errorMsg = 'Error al capturar audio interno';
+            if (error.name === 'NotAllowedError') {
+                errorMsg = 'Permiso denegado. Debes aceptar compartir audio.';
+            } else if (error.name === 'NotSupportedError') {
+                errorMsg = 'Tu navegador no soporta captura de audio. Usa Chrome en Android.';
+            }
+
+            this.updateStatus(errorMsg, 'error');
+        }
+    }
+
+    stopInternalAudio() {
+        if (this.internalStream) {
+            this.internalStream.getTracks().forEach(track => track.stop());
+            this.internalStream = null;
+        }
+
+        if (this.internalSource) {
+            this.internalSource.disconnect();
+            this.internalSource = null;
+        }
+
+        document.getElementById('startInternal').disabled = false;
+        document.getElementById('stopInternal').disabled = true;
+
+        this.updateStatus('Audio interno detenido', 'info');
+        this.addDebugLine('⏹️ Audio interno detenido');
+
+        // Solo detener monitoreo si tampoco hay micrófono
+        if (!this.micStream) {
+            this.stopMonitoring();
+        }
     }
     
     startMonitoring() {
@@ -156,16 +266,20 @@ class MobilePitchMonitor {
 
         const currentTime = Date.now();
         let micPitch = null;
+        let internalPitch = null;
 
+        // Log cada 60 frames (~1 segundo)
+        if (!this.frameCount) this.frameCount = 0;
+        this.frameCount++;
+
+        // Detectar pitch del micrófono (tu voz + ambiente)
         if (this.micAnalyser) {
-            micPitch = this.detectPitch(this.micAnalyser);
+            micPitch = this.detectPitch(this.micAnalyser, 'mic');
 
-            // Log cada 60 frames (~1 segundo)
-            if (!this.frameCount) this.frameCount = 0;
-            this.frameCount++;
             if (this.frameCount % 60 === 0) {
-                console.log('Pitch detectado:', micPitch > 0 ? micPitch.toFixed(2) + ' Hz' : 'Sin señal');
+                console.log('🎤 Pitch micrófono:', micPitch > 0 ? micPitch.toFixed(2) + ' Hz' : 'Sin señal');
             }
+
             if (micPitch && micPitch > 0) {
                 const note = this.frequencyToNote(micPitch);
                 document.getElementById('userNote').textContent = note.note;
@@ -203,25 +317,49 @@ class MobilePitchMonitor {
                     pitchDirEl.className = 'pitch-direction';
                 }
             }
-
-            // Agregar punto al timeline
-            if (!this.timelineStartTime) {
-                this.timelineStartTime = currentTime;
-            }
-
-            this.timelineData.push({
-                time: currentTime - this.timelineStartTime,
-                micFreq: micPitch > 0 ? micPitch : null
-            });
-
-            // Limitar el tamaño del timeline (últimos 10 segundos)
-            if (this.timelineData.length > this.maxTimelinePoints) {
-                this.timelineData.shift();
-            }
-
-            // Dibujar timeline de notas
-            this.drawNoteTimeline();
         }
+
+        // Detectar pitch del audio interno (música pura)
+        if (this.internalAnalyser) {
+            internalPitch = this.detectPitch(this.internalAnalyser, 'internal');
+
+            if (this.frameCount % 60 === 0) {
+                console.log('🎵 Pitch música:', internalPitch > 0 ? internalPitch.toFixed(2) + ' Hz' : 'Sin señal');
+            }
+
+            // Mostrar la nota de la canción
+            const songNoteEl = document.getElementById('songNote');
+            const songFreqEl = document.getElementById('songFreq');
+            if (songNoteEl && songFreqEl) {
+                if (internalPitch && internalPitch > 0) {
+                    const note = this.frequencyToNote(internalPitch);
+                    songNoteEl.textContent = note.note;
+                    songFreqEl.textContent = `${internalPitch.toFixed(1)} Hz`;
+                } else {
+                    songNoteEl.textContent = '--';
+                    songFreqEl.textContent = '0 Hz';
+                }
+            }
+        }
+
+        // Agregar punto al timeline
+        if (!this.timelineStartTime) {
+            this.timelineStartTime = currentTime;
+        }
+
+        this.timelineData.push({
+            time: currentTime - this.timelineStartTime,
+            micFreq: micPitch > 0 ? micPitch : null,
+            internalFreq: internalPitch > 0 ? internalPitch : null
+        });
+
+        // Limitar el tamaño del timeline (últimos 10 segundos)
+        if (this.timelineData.length > this.maxTimelinePoints) {
+            this.timelineData.shift();
+        }
+
+        // Dibujar timeline de notas
+        this.drawNoteTimeline();
     }
     
     drawNoteTimeline() {
@@ -251,6 +389,34 @@ class MobilePitchMonitor {
         const currentTime = Date.now() - this.timelineStartTime;
         const timeWindow = 10000; // 10 segundos en milisegundos
         const timeStart = Math.max(0, currentTime - timeWindow);
+
+        // Dibujar línea del audio interno/música (verde)
+        if (this.internalAnalyser) {
+            ctx.strokeStyle = '#48bb78';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#48bb78';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            let firstInternal = true;
+            this.timelineData.forEach(point => {
+                if (point.internalFreq && point.internalFreq > 0) {
+                    const x = ((point.time - timeStart) / timeWindow) * width;
+                    if (x >= 0 && x <= width) {
+                        const y = this.frequencyToY(point.internalFreq, height);
+
+                        if (firstInternal) {
+                            ctx.moveTo(x, y);
+                            firstInternal = false;
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                }
+            });
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
 
         // Dibujar línea de tu voz (azul/morado)
         ctx.strokeStyle = '#667eea';
@@ -291,8 +457,10 @@ class MobilePitchMonitor {
 
         // Leyenda
         ctx.font = '12px monospace';
+        ctx.fillStyle = '#48bb78';
+        ctx.fillText('🎵 Canción', 10, 20);
         ctx.fillStyle = '#667eea';
-        ctx.fillText('🎤 Tu Voz', 10, 20);
+        ctx.fillText('🎤 Tu Voz', 10, 35);
     }
 
     drawNoteGrid(ctx, width, height) {
@@ -366,7 +534,7 @@ class MobilePitchMonitor {
         return ((maxSemitone - semitonesFromC2) / maxSemitone) * canvasHeight;
     }
     
-    detectPitch(analyser) {
+    detectPitch(analyser, source = 'mic') {
         const bufferLength = analyser.fftSize;
         const buffer = new Float32Array(bufferLength);
         analyser.getFloatTimeDomainData(buffer);
@@ -378,31 +546,47 @@ class MobilePitchMonitor {
         }
         rms = Math.sqrt(rms / buffer.length);
 
-        // Log RMS cada 30 frames (más frecuente para debug)
-        if (this.frameCount % 30 === 0) {
-            this.addDebugLine(`RMS: ${rms.toFixed(6)} ${rms < 0.005 ? '❌ (bajo)' : '✅'}`);
+        // Log RMS cada 30 frames (más frecuente para debug) - solo para micrófono
+        if (source === 'mic' && this.frameCount % 30 === 0) {
+            this.addDebugLine(`🎤 RMS: ${rms.toFixed(6)} ${rms < 0.005 ? '❌' : '✅'}`);
         }
 
-        // Umbral calibrado: 0.005 filtra ruido pero detecta voz
-        // Basado en observación: ruido ~0.0007, voz ~0.008
-        if (rms < 0.005) return -1;
+        // Log RMS para audio interno cada 60 frames
+        if (source === 'internal' && this.frameCount % 60 === 0) {
+            this.addDebugLine(`🎵 RMS: ${rms.toFixed(6)} ${rms < 0.001 ? '❌' : '✅'}`);
+        }
+
+        // Umbral diferente según la fuente
+        // Micrófono: umbral calibrado 0.005 (filtra ruido ambiente)
+        // Audio interno: umbral más bajo 0.001 (audio limpio del sistema)
+        const threshold = source === 'mic' ? 0.005 : 0.001;
+        if (rms < threshold) return -1;
 
         // Usar autocorrelación simple para móvil (más rápido)
-        const pitch = this.autocorrelate(buffer, this.audioContext.sampleRate);
+        const pitch = this.autocorrelate(buffer, this.audioContext.sampleRate, source);
 
-        if (this.frameCount % 30 === 0) {
+        if (source === 'mic' && this.frameCount % 30 === 0) {
             if (pitch > 0) {
                 const note = this.frequencyToNote(pitch);
-                this.addDebugLine(`Freq: ${pitch.toFixed(1)} Hz → ${note.note}`);
+                this.addDebugLine(`🎤 Freq: ${pitch.toFixed(1)} Hz → ${note.note}`);
             } else {
-                this.addDebugLine('Freq: No detectada');
+                this.addDebugLine('🎤 Freq: No detectada');
+            }
+        }
+
+        if (source === 'internal' && this.frameCount % 60 === 0) {
+            if (pitch > 0) {
+                const note = this.frequencyToNote(pitch);
+                this.addDebugLine(`🎵 Freq: ${pitch.toFixed(1)} Hz → ${note.note}`);
+            } else {
+                this.addDebugLine('🎵 Freq: No detectada');
             }
         }
 
         return pitch;
     }
     
-    autocorrelate(buffer, sampleRate) {
+    autocorrelate(buffer, sampleRate, source = 'mic') {
         const SIZE = buffer.length;
         const MAX_SAMPLES = Math.floor(SIZE / 2);
         let bestOffset = -1;

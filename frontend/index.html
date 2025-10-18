@@ -211,13 +211,21 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎵 Pitch Monitor v20</h1>
-        
+        <h1>🎵 Pitch Monitor v21</h1>
+
         <div class="controls">
             <div class="control-group">
                 <h3>🎤 Micrófono</h3>
                 <button id="startMic">Iniciar Micrófono</button>
                 <button id="stopMic" disabled>Detener Micrófono</button>
+            </div>
+            <div class="control-group">
+                <h3>🎵 Audio Interno (Música)</h3>
+                <button id="startInternal">Capturar Audio del Celular</button>
+                <button id="stopInternal" disabled>Detener Captura</button>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                    📌 Reproduce música en Spotify/YouTube y captura el audio interno para comparar con tu voz.
+                </p>
             </div>
         </div>
 
@@ -227,6 +235,11 @@
         </div>
 
         <div class="pitch-display">
+            <div class="pitch-box" style="grid-column: 1 / -1;">
+                <h3>🎵 Nota de la Canción</h3>
+                <div class="note" id="songNote">--</div>
+                <div class="frequency" id="songFreq">0 Hz</div>
+            </div>
             <div class="pitch-box" style="grid-column: 1 / -1;">
                 <h3>🎤 Tu Nota</h3>
                 <div class="note" id="userNote">--</div>
@@ -269,6 +282,6 @@
     </div>
     
     <!-- Script adaptativo: Móvil o Desktop -->
-    <script src="app-mobile.js?v=5"></script>
+    <script src="app-mobile.js?v=21"></script>
 </body>
 </html>
