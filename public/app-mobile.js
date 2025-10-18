@@ -51,23 +51,29 @@ class MobilePitchMonitor {
         document.getElementById('startMic').addEventListener('click', () => this.startMicrophone());
         document.getElementById('stopMic').addEventListener('click', () => this.stopMicrophone());
 
-        // Input de archivo de audio
-        document.getElementById('audioFile').addEventListener('change', (e) => this.loadAudioFile(e));
+        // Input de archivo de audio (solo en móvil)
+        const audioFileInput = document.getElementById('audioFile');
+        if (audioFileInput) {
+            audioFileInput.addEventListener('change', (e) => this.loadAudioFile(e));
+        }
 
         // Botón copiar debug
-        document.getElementById('copyDebugBtn').addEventListener('click', () => {
-            const text = this.debugLines.join('\n');
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = document.getElementById('copyDebugBtn');
-                const originalText = btn.textContent;
-                btn.textContent = '✅ Copiado!';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                }, 2000);
-            }).catch(err => {
-                this.addDebugLine('Error al copiar: ' + err);
+        const copyBtn = document.getElementById('copyDebugBtn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const text = this.debugLines.join('\n');
+                navigator.clipboard.writeText(text).then(() => {
+                    const btn = document.getElementById('copyDebugBtn');
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copiado!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    this.addDebugLine('Error al copiar: ' + err);
+                });
             });
-        });
+        }
     }
     
     async startMicrophone() {
