@@ -19,7 +19,26 @@ class MobilePitchMonitor {
         this.maxTimelinePoints = 200;
         this.timelineStartTime = null;
 
+        // Debug info
+        this.debugLines = [];
+        this.maxDebugLines = 10;
+
         this.initializeEventListeners();
+    }
+
+    addDebugLine(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        this.debugLines.push(`[${timestamp}] ${message}`);
+        if (this.debugLines.length > this.maxDebugLines) {
+            this.debugLines.shift();
+        }
+
+        const debugContent = document.getElementById('debugContent');
+        if (debugContent) {
+            debugContent.innerHTML = this.debugLines.join('<br>');
+        }
+
+        console.log(message);
     }
     
     initializeEventListeners() {
@@ -29,13 +48,14 @@ class MobilePitchMonitor {
     
     async startMicrophone() {
         try {
+            this.addDebugLine('🎤 Iniciando micrófono...');
             this.updateStatus('Solicitando acceso al micrófono...', 'info');
-            
+
             if (!this.audioContext) {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('AudioContext creado, sampleRate:', this.audioContext.sampleRate);
+                this.addDebugLine(`AudioContext: sampleRate=${this.audioContext.sampleRate}`);
             }
-            
+
             // Configuración optimizada para móvil
             const constraints = {
                 audio: {
@@ -44,28 +64,37 @@ class MobilePitchMonitor {
                     autoGainControl: false
                 }
             };
-            
+
             // En iOS necesitamos configuración especial
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS) {
                 constraints.audio.sampleRate = 44100;
+                this.addDebugLine('📱 iOS detectado');
             }
-            
+
+            this.addDebugLine('🔐 Solicitando permisos...');
             this.micStream = await navigator.mediaDevices.getUserMedia(constraints);
-            
+            this.addDebugLine('✅ Permisos concedidos');
+
             this.micSource = this.audioContext.createMediaStreamSource(this.micStream);
             this.micAnalyser = this.audioContext.createAnalyser();
-            this.micAnalyser.fftSize = 4096; // Mayor para mejor detección de pitch
-            this.micAnalyser.smoothingTimeConstant = 0.3; // Menos suavizado para más sensibilidad
-            
+            this.micAnalyser.fftSize = 4096;
+            this.micAnalyser.smoothingTimeConstant = 0.3;
+
+            this.addDebugLine(`FFT Size: ${this.micAnalyser.fftSize}`);
+            this.addDebugLine(`Smoothing: ${this.micAnalyser.smoothingTimeConstant}`);
+
             this.micSource.connect(this.micAnalyser);
-            
+
             document.getElementById('startMic').disabled = true;
             document.getElementById('stopMic').disabled = false;
-            
+
             this.updateStatus('✅ Micrófono activo. ¡Canta!', 'success');
+            this.addDebugLine('▶️ Iniciando monitoreo...');
             this.startMonitoring();
-            
+
         } catch (error) {
+            this.addDebugLine(`❌ ERROR: ${error.message}`);
             console.error('Error al acceder al micrófono:', error);
             this.updateStatus('Error: No se pudo acceder al micrófono', 'error');
         }
@@ -334,9 +363,9 @@ class MobilePitchMonitor {
         }
         rms = Math.sqrt(rms / buffer.length);
 
-        // Log RMS cada 60 frames
-        if (this.frameCount % 60 === 0) {
-            console.log('RMS nivel:', rms.toFixed(6), '(umbral: 0.001)');
+        // Log RMS cada 30 frames (más frecuente para debug)
+        if (this.frameCount % 30 === 0) {
+            this.addDebugLine(`RMS: ${rms.toFixed(6)} ${rms < 0.001 ? '❌ (bajo)' : '✅'}`);
         }
 
         // Umbral más bajo para mejor sensibilidad
@@ -345,8 +374,13 @@ class MobilePitchMonitor {
         // Usar autocorrelación simple para móvil (más rápido)
         const pitch = this.autocorrelate(buffer, this.audioContext.sampleRate);
 
-        if (this.frameCount % 60 === 0 && pitch > 0) {
-            console.log('Frecuencia calculada:', pitch.toFixed(2), 'Hz');
+        if (this.frameCount % 30 === 0) {
+            if (pitch > 0) {
+                const note = this.frequencyToNote(pitch);
+                this.addDebugLine(`Freq: ${pitch.toFixed(1)} Hz → ${note.note}`);
+            } else {
+                this.addDebugLine('Freq: No detectada');
+            }
         }
 
         return pitch;

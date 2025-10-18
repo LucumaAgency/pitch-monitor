@@ -211,7 +211,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎵 Pitch Monitor v14</h1>
+        <h1>🎵 Pitch Monitor v15</h1>
         
         <div class="controls">
             <div class="control-group">
@@ -238,6 +238,22 @@
 
         <div class="status info" id="status">
             Sistema listo. Haz clic en "Iniciar Micrófono" para comenzar.
+        </div>
+
+        <!-- Panel de Debug -->
+        <div class="debug-panel" id="debugPanel" style="
+            margin-top: 20px;
+            padding: 15px;
+            background: #2c2c2c;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        ">
+            <div style="font-weight: bold; color: #ffff00; margin-bottom: 5px;">🔍 DEBUG INFO</div>
+            <div id="debugContent">Esperando inicio...</div>
         </div>
     </div>
     
