@@ -380,11 +380,12 @@ class MobilePitchMonitor {
 
         // Log RMS cada 30 frames (más frecuente para debug)
         if (this.frameCount % 30 === 0) {
-            this.addDebugLine(`RMS: ${rms.toFixed(6)} ${rms < 0.0003 ? '❌ (bajo)' : '✅'}`);
+            this.addDebugLine(`RMS: ${rms.toFixed(6)} ${rms < 0.002 ? '❌ (bajo)' : '✅'}`);
         }
 
-        // Umbral MUY bajo para máxima sensibilidad en móvil
-        if (rms < 0.0003) return -1;
+        // Umbral aumentado para filtrar ruido ambiental
+        // 0.002 es suficiente para voz/canto pero filtra ruido de fondo
+        if (rms < 0.002) return -1;
 
         // Usar autocorrelación simple para móvil (más rápido)
         const pitch = this.autocorrelate(buffer, this.audioContext.sampleRate);
@@ -411,9 +412,9 @@ class MobilePitchMonitor {
 
         // Calcular límites de offset basados en frecuencias vocales
         // Frecuencia máxima: 1000 Hz → offset mínimo
-        // Frecuencia mínima: 80 Hz → offset máximo
+        // Frecuencia mínima: 100 Hz (más estricto) → offset máximo
         const MIN_OFFSET = Math.floor(sampleRate / 1000); // ~48 para 48kHz
-        const MAX_OFFSET = Math.floor(sampleRate / 80);   // ~600 para 48kHz
+        const MAX_OFFSET = Math.floor(sampleRate / 100);  // ~480 para 48kHz (antes era 80Hz)
 
         // Calcular autocorrelación para cada offset
         for (let offset = 0; offset < MAX_SAMPLES; offset++) {
@@ -461,8 +462,9 @@ class MobilePitchMonitor {
 
             const frequency = sampleRate / (bestOffset + shift);
 
-            // Validar que la frecuencia esté en rango vocal (80Hz - 1000Hz)
-            if (frequency >= 80 && frequency <= 1000) {
+            // Validar que la frecuencia esté en rango vocal (100Hz - 1000Hz)
+            // C2 = 65.4 Hz, pero usamos 100 Hz para filtrar ruido grave
+            if (frequency >= 100 && frequency <= 1000) {
                 return frequency;
             } else if (this.frameCount % 60 === 0) {
                 this.addDebugLine(`Freq fuera rango: ${frequency.toFixed(1)} Hz`);
