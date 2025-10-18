@@ -380,12 +380,12 @@ class MobilePitchMonitor {
 
         // Log RMS cada 30 frames (más frecuente para debug)
         if (this.frameCount % 30 === 0) {
-            this.addDebugLine(`RMS: ${rms.toFixed(6)} ${rms < 0.002 ? '❌ (bajo)' : '✅'}`);
+            this.addDebugLine(`RMS: ${rms.toFixed(6)} ${rms < 0.005 ? '❌ (bajo)' : '✅'}`);
         }
 
-        // Umbral aumentado para filtrar ruido ambiental
-        // 0.002 es suficiente para voz/canto pero filtra ruido de fondo
-        if (rms < 0.002) return -1;
+        // Umbral calibrado: 0.005 filtra ruido pero detecta voz
+        // Basado en observación: ruido ~0.0007, voz ~0.008
+        if (rms < 0.005) return -1;
 
         // Usar autocorrelación simple para móvil (más rápido)
         const pitch = this.autocorrelate(buffer, this.audioContext.sampleRate);
@@ -429,14 +429,15 @@ class MobilePitchMonitor {
         }
 
         // Buscar el primer pico significativo DESPUÉS del offset mínimo
+        // Umbral reducido para mejor detección en móvil
         for (let offset = MIN_OFFSET; offset < Math.min(MAX_OFFSET, MAX_SAMPLES); offset++) {
-            if (correlations[offset] > 0.5 && correlations[offset] > bestCorrelation) {
+            if (correlations[offset] > 0.3 && correlations[offset] > bestCorrelation) {
                 // Verificar que sea un pico local
                 const isPeak = offset > MIN_OFFSET && offset < MAX_SAMPLES - 1 &&
                              correlations[offset] > correlations[offset - 1] &&
                              correlations[offset] > correlations[offset + 1];
 
-                if (isPeak || correlations[offset] > 0.8) {
+                if (isPeak) {
                     bestCorrelation = correlations[offset];
                     bestOffset = offset;
                     foundGoodCorrelation = true;
