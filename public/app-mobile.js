@@ -54,8 +54,8 @@ class MobilePitchMonitor {
             
             this.micSource = this.audioContext.createMediaStreamSource(this.micStream);
             this.micAnalyser = this.audioContext.createAnalyser();
-            this.micAnalyser.fftSize = 2048; // Menor para mejor rendimiento en móvil
-            this.micAnalyser.smoothingTimeConstant = 0.8;
+            this.micAnalyser.fftSize = 4096; // Mayor para mejor detección de pitch
+            this.micAnalyser.smoothingTimeConstant = 0.3; // Menos suavizado para más sensibilidad
             
             this.micSource.connect(this.micAnalyser);
             
@@ -316,16 +316,17 @@ class MobilePitchMonitor {
         const bufferLength = analyser.fftSize;
         const buffer = new Float32Array(bufferLength);
         analyser.getFloatTimeDomainData(buffer);
-        
+
         // Calcular RMS
         let rms = 0;
         for (let i = 0; i < buffer.length; i++) {
             rms += buffer[i] * buffer[i];
         }
         rms = Math.sqrt(rms / buffer.length);
-        
-        if (rms < 0.01) return -1;
-        
+
+        // Umbral más bajo para mejor sensibilidad
+        if (rms < 0.001) return -1;
+
         // Usar autocorrelación simple para móvil (más rápido)
         return this.autocorrelate(buffer, this.audioContext.sampleRate);
     }
@@ -336,27 +337,55 @@ class MobilePitchMonitor {
         let bestOffset = -1;
         let bestCorrelation = 0;
         let foundGoodCorrelation = false;
-        
+        const correlations = new Array(MAX_SAMPLES);
+
+        // Calcular autocorrelación para cada offset
         for (let offset = 0; offset < MAX_SAMPLES; offset++) {
             let correlation = 0;
-            
+
             for (let i = 0; i < MAX_SAMPLES; i++) {
-                correlation += Math.abs((buffer[i]) - (buffer[i + offset]));
+                correlation += Math.abs(buffer[i] - buffer[i + offset]);
             }
-            
+
             correlation = 1 - (correlation / MAX_SAMPLES);
-            
-            if (correlation > 0.9 && correlation > bestCorrelation) {
-                bestCorrelation = correlation;
-                bestOffset = offset;
-                foundGoodCorrelation = true;
+            correlations[offset] = correlation;
+        }
+
+        // Buscar el primer pico significativo
+        for (let offset = 1; offset < MAX_SAMPLES; offset++) {
+            if (correlations[offset] > 0.7 && correlations[offset] > bestCorrelation) {
+                // Verificar que sea un pico local
+                const isPeak = offset > 0 && offset < MAX_SAMPLES - 1 &&
+                             correlations[offset] > correlations[offset - 1] &&
+                             correlations[offset] > correlations[offset + 1];
+
+                if (isPeak || correlations[offset] > 0.9) {
+                    bestCorrelation = correlations[offset];
+                    bestOffset = offset;
+                    foundGoodCorrelation = true;
+                    break; // Usar el primer buen pico
+                }
             }
         }
-        
+
         if (foundGoodCorrelation && bestOffset > 0) {
-            return sampleRate / bestOffset;
+            // Interpolar para obtener mejor precisión
+            let shift = 0;
+            if (bestOffset > 0 && bestOffset < MAX_SAMPLES - 1) {
+                const prev = correlations[bestOffset - 1];
+                const curr = correlations[bestOffset];
+                const next = correlations[bestOffset + 1];
+                shift = (prev - next) / (2 * (2 * curr - prev - next));
+            }
+
+            const frequency = sampleRate / (bestOffset + shift);
+
+            // Validar que la frecuencia esté en rango vocal (80Hz - 1000Hz)
+            if (frequency >= 80 && frequency <= 1000) {
+                return frequency;
+            }
         }
-        
+
         return -1;
     }
     
