@@ -10,10 +10,10 @@ class MobilePitchMonitor {
         this.micAnalyser = null;
         this.micSource = null;
 
-        // Audio interno del celular (música)
-        this.internalStream = null;
-        this.internalAnalyser = null;
-        this.internalSource = null;
+        // Audio element para la música
+        this.audioElement = null;
+        this.audioAnalyser = null;
+        this.audioSource = null;
 
         this.isMonitoring = false;
         this.rafId = null;
@@ -51,9 +51,8 @@ class MobilePitchMonitor {
         document.getElementById('startMic').addEventListener('click', () => this.startMicrophone());
         document.getElementById('stopMic').addEventListener('click', () => this.stopMicrophone());
 
-        // Botón para capturar audio interno
-        document.getElementById('startInternal').addEventListener('click', () => this.startInternalAudio());
-        document.getElementById('stopInternal').addEventListener('click', () => this.stopInternalAudio());
+        // Input de archivo de audio
+        document.getElementById('audioFile').addEventListener('change', (e) => this.loadAudioFile(e));
 
         // Botón copiar debug
         document.getElementById('copyDebugBtn').addEventListener('click', () => {
@@ -143,104 +142,65 @@ class MobilePitchMonitor {
         this.stopMonitoring();
     }
 
-    async startInternalAudio() {
-        try {
-            this.addDebugLine('🎵 Iniciando captura de audio interno...');
+    loadAudioFile(event) {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
 
-            if (!this.audioContext) {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                this.addDebugLine(`AudioContext: sampleRate=${this.audioContext.sampleRate}`);
-            }
+        this.addDebugLine(`🎵 Cargando archivo: ${file.name}`);
 
-            // getDisplayMedia para capturar audio interno
-            // En Android Chrome esto permite capturar el audio del sistema
-            const constraints = {
-                video: false, // Solo queremos audio
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    channelCount: 2
-                }
-            };
+        // Crear URL del archivo
+        const fileURL = URL.createObjectURL(file);
 
-            this.addDebugLine('🔐 Solicitando permisos de captura...');
+        // Obtener o crear el elemento de audio
+        this.audioElement = document.getElementById('songAudio');
+        if (!this.audioElement) {
+            this.addDebugLine('❌ Error: Elemento de audio no encontrado');
+            return;
+        }
 
-            // Verificar si el navegador soporta getDisplayMedia
-            if (!navigator.mediaDevices.getDisplayMedia) {
-                throw new Error('getDisplayMedia no soportado en este navegador');
-            }
+        // Asignar el archivo al elemento de audio
+        this.audioElement.src = fileURL;
+        this.audioElement.load();
 
-            this.internalStream = await navigator.mediaDevices.getDisplayMedia(constraints);
-            this.addDebugLine('✅ Permisos de captura concedidos');
+        // Crear AudioContext si no existe
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.addDebugLine(`AudioContext: sampleRate=${this.audioContext.sampleRate}`);
+        }
 
-            // Verificar si hay pistas de audio
-            const audioTracks = this.internalStream.getAudioTracks();
-            if (audioTracks.length === 0) {
-                throw new Error('No se detectaron pistas de audio. Asegúrate de seleccionar "Compartir audio" en el diálogo.');
-            }
+        // Crear source y analyser para el audio
+        if (!this.audioSource) {
+            this.audioSource = this.audioContext.createMediaElementSource(this.audioElement);
+            this.audioAnalyser = this.audioContext.createAnalyser();
+            this.audioAnalyser.fftSize = 4096;
+            this.audioAnalyser.smoothingTimeConstant = 0.3;
 
-            this.addDebugLine(`📊 Pistas de audio: ${audioTracks.length}`);
-            audioTracks.forEach((track, idx) => {
-                this.addDebugLine(`  Track ${idx}: ${track.label}`);
-            });
+            // Conectar: source -> analyser -> destination (para que se escuche)
+            this.audioSource.connect(this.audioAnalyser);
+            this.audioAnalyser.connect(this.audioContext.destination);
 
-            this.internalSource = this.audioContext.createMediaStreamSource(this.internalStream);
-            this.internalAnalyser = this.audioContext.createAnalyser();
-            this.internalAnalyser.fftSize = 4096;
-            this.internalAnalyser.smoothingTimeConstant = 0.3;
+            this.addDebugLine('🎵 Analyser de audio creado');
+        }
 
-            this.addDebugLine(`FFT Size: ${this.internalAnalyser.fftSize}`);
+        // Mostrar controles de audio
+        this.audioElement.style.display = 'block';
 
-            this.internalSource.connect(this.internalAnalyser);
+        this.updateStatus(`✅ Archivo cargado: ${file.name}`, 'success');
+        this.addDebugLine('▶️ Dale play para empezar!');
 
-            document.getElementById('startInternal').disabled = true;
-            document.getElementById('stopInternal').disabled = false;
-
-            this.updateStatus('✅ Audio interno capturado. Reproduce música!', 'success');
-            this.addDebugLine('▶️ Monitoreando audio interno...');
-
-            // Si el micrófono no está activo, iniciar monitoreo
+        // Event listener para cuando empiece a reproducir
+        this.audioElement.addEventListener('play', () => {
+            this.addDebugLine('▶️ Reproduciendo audio');
             if (!this.isMonitoring) {
                 this.startMonitoring();
             }
+        });
 
-        } catch (error) {
-            this.addDebugLine(`❌ ERROR: ${error.message}`);
-            console.error('Error al capturar audio interno:', error);
-
-            let errorMsg = 'Error al capturar audio interno';
-            if (error.name === 'NotAllowedError') {
-                errorMsg = 'Permiso denegado. Debes aceptar compartir audio.';
-            } else if (error.name === 'NotSupportedError') {
-                errorMsg = 'Tu navegador no soporta captura de audio. Usa Chrome en Android.';
-            }
-
-            this.updateStatus(errorMsg, 'error');
-        }
-    }
-
-    stopInternalAudio() {
-        if (this.internalStream) {
-            this.internalStream.getTracks().forEach(track => track.stop());
-            this.internalStream = null;
-        }
-
-        if (this.internalSource) {
-            this.internalSource.disconnect();
-            this.internalSource = null;
-        }
-
-        document.getElementById('startInternal').disabled = false;
-        document.getElementById('stopInternal').disabled = true;
-
-        this.updateStatus('Audio interno detenido', 'info');
-        this.addDebugLine('⏹️ Audio interno detenido');
-
-        // Solo detener monitoreo si tampoco hay micrófono
-        if (!this.micStream) {
-            this.stopMonitoring();
-        }
+        this.audioElement.addEventListener('pause', () => {
+            this.addDebugLine('⏸️ Audio pausado');
+        });
     }
     
     startMonitoring() {
@@ -319,9 +279,9 @@ class MobilePitchMonitor {
             }
         }
 
-        // Detectar pitch del audio interno (música pura)
-        if (this.internalAnalyser) {
-            internalPitch = this.detectPitch(this.internalAnalyser, 'internal');
+        // Detectar pitch del audio de la canción
+        if (this.audioAnalyser) {
+            internalPitch = this.detectPitch(this.audioAnalyser, 'song');
 
             if (this.frameCount % 60 === 0) {
                 console.log('🎵 Pitch música:', internalPitch > 0 ? internalPitch.toFixed(2) + ' Hz' : 'Sin señal');
@@ -350,7 +310,7 @@ class MobilePitchMonitor {
         this.timelineData.push({
             time: currentTime - this.timelineStartTime,
             micFreq: micPitch > 0 ? micPitch : null,
-            internalFreq: internalPitch > 0 ? internalPitch : null
+            songFreq: internalPitch > 0 ? internalPitch : null
         });
 
         // Limitar el tamaño del timeline (últimos 10 segundos)
@@ -390,24 +350,24 @@ class MobilePitchMonitor {
         const timeWindow = 10000; // 10 segundos en milisegundos
         const timeStart = Math.max(0, currentTime - timeWindow);
 
-        // Dibujar línea del audio interno/música (verde)
-        if (this.internalAnalyser) {
+        // Dibujar línea del audio de la canción (verde)
+        if (this.audioAnalyser) {
             ctx.strokeStyle = '#48bb78';
             ctx.shadowBlur = 8;
             ctx.shadowColor = '#48bb78';
             ctx.lineWidth = 3;
             ctx.beginPath();
 
-            let firstInternal = true;
+            let firstSong = true;
             this.timelineData.forEach(point => {
-                if (point.internalFreq && point.internalFreq > 0) {
+                if (point.songFreq && point.songFreq > 0) {
                     const x = ((point.time - timeStart) / timeWindow) * width;
                     if (x >= 0 && x <= width) {
-                        const y = this.frequencyToY(point.internalFreq, height);
+                        const y = this.frequencyToY(point.songFreq, height);
 
-                        if (firstInternal) {
+                        if (firstSong) {
                             ctx.moveTo(x, y);
-                            firstInternal = false;
+                            firstSong = false;
                         } else {
                             ctx.lineTo(x, y);
                         }
@@ -551,14 +511,14 @@ class MobilePitchMonitor {
             this.addDebugLine(`🎤 RMS: ${rms.toFixed(6)} ${rms < 0.005 ? '❌' : '✅'}`);
         }
 
-        // Log RMS para audio interno cada 60 frames
-        if (source === 'internal' && this.frameCount % 60 === 0) {
+        // Log RMS para audio de la canción cada 60 frames
+        if (source === 'song' && this.frameCount % 60 === 0) {
             this.addDebugLine(`🎵 RMS: ${rms.toFixed(6)} ${rms < 0.001 ? '❌' : '✅'}`);
         }
 
         // Umbral diferente según la fuente
         // Micrófono: umbral calibrado 0.005 (filtra ruido ambiente)
-        // Audio interno: umbral más bajo 0.001 (audio limpio del sistema)
+        // Audio de canción: umbral más bajo 0.001 (audio limpio de archivo)
         const threshold = source === 'mic' ? 0.005 : 0.001;
         if (rms < threshold) return -1;
 
@@ -574,7 +534,7 @@ class MobilePitchMonitor {
             }
         }
 
-        if (source === 'internal' && this.frameCount % 60 === 0) {
+        if (source === 'song' && this.frameCount % 60 === 0) {
             if (pitch > 0) {
                 const note = this.frequencyToNote(pitch);
                 this.addDebugLine(`🎵 Freq: ${pitch.toFixed(1)} Hz → ${note.note}`);

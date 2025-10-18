@@ -211,7 +211,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎵 Pitch Monitor v21</h1>
+        <h1>🎵 Pitch Monitor v22</h1>
 
         <div class="controls">
             <div class="control-group">
@@ -220,12 +220,22 @@
                 <button id="stopMic" disabled>Detener Micrófono</button>
             </div>
             <div class="control-group">
-                <h3>🎵 Audio Interno (Música)</h3>
-                <button id="startInternal">Capturar Audio del Celular</button>
-                <button id="stopInternal" disabled>Detener Captura</button>
+                <h3>🎵 Cargar Canción</h3>
+                <input type="file" id="audioFile" accept="audio/*" style="
+                    padding: 10px;
+                    background: white;
+                    border: 2px dashed #667eea;
+                    cursor: pointer;
+                ">
                 <p style="font-size: 12px; color: #666; margin-top: 10px;">
-                    📌 Reproduce música en Spotify/YouTube y captura el audio interno para comparar con tu voz.
+                    📌 Sube un archivo MP3, WAV, o cualquier formato de audio para comparar con tu voz.
                 </p>
+                <!-- Elemento de audio oculto inicialmente -->
+                <audio id="songAudio" controls style="
+                    width: 100%;
+                    margin-top: 10px;
+                    display: none;
+                "></audio>
             </div>
         </div>
 
@@ -282,6 +292,6 @@
     </div>
     
     <!-- Script adaptativo: Móvil o Desktop -->
-    <script src="app-mobile.js?v=21"></script>
+    <script src="app-mobile.js?v=22"></script>
 </body>
 </html>
