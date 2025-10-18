@@ -294,16 +294,16 @@ class MobilePitchMonitor {
             }
 
             // Mostrar la nota de la canción
-            const songNoteEl = document.getElementById('songNote');
-            const songFreqEl = document.getElementById('songFreq');
-            if (songNoteEl && songFreqEl) {
+            const videoNoteEl = document.getElementById('videoNote');
+            const videoFreqEl = document.getElementById('videoFreq');
+            if (videoNoteEl && videoFreqEl) {
                 if (internalPitch && internalPitch > 0) {
                     const note = this.frequencyToNote(internalPitch);
-                    songNoteEl.textContent = note.note;
-                    songFreqEl.textContent = `${internalPitch.toFixed(1)} Hz`;
+                    videoNoteEl.textContent = note.note;
+                    videoFreqEl.textContent = `${internalPitch.toFixed(1)} Hz`;
                 } else {
-                    songNoteEl.textContent = '--';
-                    songFreqEl.textContent = '0 Hz';
+                    videoNoteEl.textContent = '--';
+                    videoFreqEl.textContent = '0 Hz';
                 }
             }
         }
