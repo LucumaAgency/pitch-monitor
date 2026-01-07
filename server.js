@@ -37,6 +37,11 @@ app.use((req, res, next) => {
 // IMPORTANTE: Servir archivos estáticos DESPUÉS del logging pero ANTES de las rutas API
 app.use(express.static(path.join(__dirname, '/')));
 
+// Ruta para pitch-test
+app.get('/pitch-test', (req, res) => {
+    res.sendFile(path.join(__dirname, 'pitch-test.html'));
+});
+
 app.get('/api/youtube-audio/:videoId', async (req, res) => {
     try {
         const { videoId } = req.params;
