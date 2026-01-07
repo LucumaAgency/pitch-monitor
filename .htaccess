@@ -7,6 +7,9 @@ RewriteEngine On
 RewriteCond %{REQUEST_URI} ^/api/
 RewriteRule ^api/(.*)$ http://localhost:3000/api/$1 [P,L]
 
+# Redirigir pitch-test al servidor Node.js
+RewriteRule ^pitch-test$ http://localhost:3000/pitch-test [P,L]
+
 # Servir archivos estáticos directamente
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
