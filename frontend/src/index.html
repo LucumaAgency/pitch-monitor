@@ -266,7 +266,628 @@
             Sistema listo. Haz clic en "Iniciar Micrófono" para comenzar.
         </div>
     </div>
-    
+
+    <!-- Pitch Test Section -->
+    <div class="container" style="margin-top: 30px;">
+        <h1>🎮 Pitch Test - Guitar Hero Style</h1>
+
+        <div class="pitch-test-wrapper">
+            <div class="pt-instruction-bar">
+                <div class="pt-instruction-text">
+                    <strong>Instrucciones:</strong> Escucha la nota, luego cántala.
+                    Verde = correcto, Amarillo = cerca, Rojo = desafinado
+                </div>
+                <div class="pt-btn-group">
+                    <button class="pt-btn pt-btn-listen" id="ptListenBtn">🔊 Escuchar Nota</button>
+                    <button class="pt-btn pt-btn-test" id="ptTestBtn">▶ Comenzar Test</button>
+                </div>
+            </div>
+
+            <div class="pt-info-row">
+                <div class="pt-current-note">
+                    <span class="pt-mic-icon">🎤</span>
+                    <span id="ptDetectedNote">--</span>
+                </div>
+                <div class="pt-score-display">
+                    <span class="pt-score-label">Puntuación: </span>
+                    <span class="pt-score-value" id="ptScore">0</span>
+                </div>
+                <div class="pt-cents-display">
+                    <span>Cents: </span><span id="ptCentsValue">0</span>
+                </div>
+            </div>
+
+            <div class="pt-game-container">
+                <canvas id="ptGameCanvas"></canvas>
+            </div>
+
+            <div class="pt-piano-container">
+                <div class="pt-piano" id="ptPiano"></div>
+            </div>
+
+            <div class="pt-note-selector">
+                <span class="pt-note-selector-label">Nota objetivo:</span>
+                <div class="pt-note-buttons" id="ptNoteButtons"></div>
+            </div>
+
+            <div class="pt-feedback" id="ptFeedback"></div>
+        </div>
+    </div>
+
+    <style>
+        /* Pitch Test Styles */
+        .pitch-test-wrapper {
+            margin-top: 20px;
+        }
+
+        .pt-instruction-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .pt-instruction-text {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .pt-instruction-text strong {
+            color: #667eea;
+        }
+
+        .pt-btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .pt-btn {
+            padding: 10px 20px !important;
+            width: auto !important;
+            font-size: 14px !important;
+        }
+
+        .pt-btn-listen {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+
+        .pt-btn-test {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important;
+        }
+
+        .pt-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: #f7f7f7;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .pt-current-note {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .pt-mic-icon {
+            color: #ff4444;
+        }
+
+        .pt-score-display {
+            font-size: 18px;
+        }
+
+        .pt-score-value {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 24px;
+        }
+
+        .pt-cents-display {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .pt-game-container {
+            background: #f9f9f9;
+            border-radius: 10px;
+            height: 300px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        #ptGameCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .pt-piano-container {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            overflow-x: auto;
+            margin-bottom: 15px;
+            border: 2px solid #333;
+        }
+
+        .pt-piano {
+            display: flex;
+            height: 80px;
+            position: relative;
+            min-width: max-content;
+        }
+
+        .pt-white-key {
+            width: 35px;
+            height: 80px;
+            background: white;
+            border: 1px solid #333;
+            cursor: pointer;
+            position: relative;
+            z-index: 1;
+            flex-shrink: 0;
+        }
+
+        .pt-white-key:hover {
+            background: #eee;
+        }
+
+        .pt-white-key.active {
+            background: #ffeb3b;
+        }
+
+        .pt-white-key.target {
+            background: rgba(102, 126, 234, 0.3);
+        }
+
+        .pt-black-key {
+            width: 22px;
+            height: 50px;
+            background: #333;
+            position: absolute;
+            z-index: 2;
+            cursor: pointer;
+            border-radius: 0 0 3px 3px;
+        }
+
+        .pt-black-key:hover {
+            background: #555;
+        }
+
+        .pt-black-key.active {
+            background: #ffc107;
+        }
+
+        .pt-black-key.target {
+            background: rgba(102, 126, 234, 0.8);
+        }
+
+        .pt-octave-label {
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .pt-note-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 10px;
+            background: #f7f7f7;
+            border-radius: 10px;
+        }
+
+        .pt-note-selector-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .pt-note-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .pt-note-btn {
+            padding: 5px 10px !important;
+            width: auto !important;
+            font-size: 12px !important;
+            border-radius: 15px !important;
+            background: white !important;
+            color: #333 !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .pt-note-btn:hover {
+            background: #f0f0f0 !important;
+            transform: none !important;
+        }
+
+        .pt-note-btn.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white !important;
+            border-color: #667eea !important;
+        }
+
+        .pt-feedback {
+            position: fixed;
+            top: 50%;
+            right: 30px;
+            transform: translateY(-50%);
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            display: none;
+            z-index: 1000;
+        }
+
+        .pt-feedback.correct {
+            background: #4caf50;
+            color: white;
+            display: block;
+        }
+
+        .pt-feedback.close {
+            background: #ffeb3b;
+            color: #333;
+            display: block;
+        }
+
+        .pt-feedback.wrong {
+            background: #f44336;
+            color: white;
+            display: block;
+        }
+    </style>
+
+    <script>
+        // Pitch Test Game Logic
+        (function() {
+            let ptAudioContext;
+            let ptAnalyser;
+            let ptMicrophone;
+            let ptIsListening = false;
+            let ptIsTestRunning = false;
+            let ptAnimationId;
+            let ptTargetNote = 'C3';
+            let ptTargetFrequency = 130.81;
+            let ptScore = 0;
+            let ptFallingNotes = [];
+            let ptUserPitchHistory = [];
+
+            const ptNoteFrequencies = {
+                'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31,
+                'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.00, 'A#2': 116.54, 'B2': 123.47,
+                'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81, 'F3': 174.61,
+                'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
+                'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23,
+                'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+                'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46
+            };
+
+            const ptNoteNames = Object.keys(ptNoteFrequencies);
+
+            const ptCanvas = document.getElementById('ptGameCanvas');
+            const ptCtx = ptCanvas.getContext('2d');
+
+            function ptResizeCanvas() {
+                ptCanvas.width = ptCanvas.parentElement.clientWidth;
+                ptCanvas.height = ptCanvas.parentElement.clientHeight;
+            }
+
+            window.addEventListener('resize', ptResizeCanvas);
+            ptResizeCanvas();
+
+            function ptBuildPiano() {
+                const piano = document.getElementById('ptPiano');
+                const noteButtons = document.getElementById('ptNoteButtons');
+                piano.innerHTML = '';
+                noteButtons.innerHTML = '';
+
+                const whiteNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+                const blackNoteOffsets = { 'C': true, 'D': true, 'F': true, 'G': true, 'A': true };
+                let whiteKeyIndex = 0;
+
+                for (let octave = 2; octave <= 5; octave++) {
+                    whiteNotes.forEach((note) => {
+                        const noteName = `${note}${octave}`;
+                        if (!ptNoteFrequencies[noteName]) return;
+
+                        const whiteKey = document.createElement('div');
+                        whiteKey.className = 'pt-white-key';
+                        whiteKey.dataset.note = noteName;
+                        whiteKey.onclick = () => ptSelectNote(noteName);
+
+                        if (note === 'C') {
+                            const label = document.createElement('span');
+                            label.className = 'pt-octave-label';
+                            label.textContent = `C${octave}`;
+                            whiteKey.appendChild(label);
+                        }
+
+                        piano.appendChild(whiteKey);
+
+                        if (blackNoteOffsets[note]) {
+                            const blackNoteName = `${note}#${octave}`;
+                            if (ptNoteFrequencies[blackNoteName]) {
+                                const blackKey = document.createElement('div');
+                                blackKey.className = 'pt-black-key';
+                                blackKey.dataset.note = blackNoteName;
+                                blackKey.style.left = `${(whiteKeyIndex + 1) * 35 - 11}px`;
+                                blackKey.onclick = () => ptSelectNote(blackNoteName);
+                                piano.appendChild(blackKey);
+                            }
+                        }
+                        whiteKeyIndex++;
+                    });
+                }
+
+                const commonNotes = ['C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4'];
+                commonNotes.forEach(note => {
+                    const btn = document.createElement('button');
+                    btn.className = 'pt-note-btn' + (note === ptTargetNote ? ' selected' : '');
+                    btn.textContent = note;
+                    btn.onclick = () => ptSelectNote(note);
+                    noteButtons.appendChild(btn);
+                });
+            }
+
+            function ptSelectNote(note) {
+                ptTargetNote = note;
+                ptTargetFrequency = ptNoteFrequencies[note];
+
+                document.querySelectorAll('.pt-note-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                    if (btn.textContent === note) btn.classList.add('selected');
+                });
+
+                document.querySelectorAll('.pt-white-key, .pt-black-key').forEach(key => {
+                    key.classList.remove('target');
+                    if (key.dataset.note === note) key.classList.add('target');
+                });
+
+                const targetKey = document.querySelector(`.pt-piano [data-note="${note}"]`);
+                if (targetKey) targetKey.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+            }
+
+            function ptPlayNote(frequency, duration = 1) {
+                if (!ptAudioContext) {
+                    ptAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const oscillator = ptAudioContext.createOscillator();
+                const gainNode = ptAudioContext.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.value = frequency;
+                gainNode.gain.setValueAtTime(0.3, ptAudioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, ptAudioContext.currentTime + duration);
+                oscillator.connect(gainNode);
+                gainNode.connect(ptAudioContext.destination);
+                oscillator.start();
+                oscillator.stop(ptAudioContext.currentTime + duration);
+            }
+
+            function ptPlayTargetNote() {
+                ptPlayNote(ptTargetFrequency, 1.5);
+                ptAddFallingNote(ptTargetNote, 'target');
+            }
+
+            async function ptSetupMicrophone() {
+                try {
+                    if (!ptAudioContext) {
+                        ptAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    ptMicrophone = ptAudioContext.createMediaStreamSource(stream);
+                    ptAnalyser = ptAudioContext.createAnalyser();
+                    ptAnalyser.fftSize = 2048;
+                    ptMicrophone.connect(ptAnalyser);
+                    return true;
+                } catch (err) {
+                    console.error('Microphone access denied:', err);
+                    alert('Por favor permite el acceso al micrófono.');
+                    return false;
+                }
+            }
+
+            function ptDetectPitch() {
+                const buffer = new Float32Array(ptAnalyser.fftSize);
+                ptAnalyser.getFloatTimeDomainData(buffer);
+
+                let rms = 0;
+                for (let i = 0; i < buffer.length; i++) rms += buffer[i] * buffer[i];
+                rms = Math.sqrt(rms / buffer.length);
+                if (rms < 0.01) return null;
+
+                const correlations = new Float32Array(buffer.length);
+                for (let lag = 0; lag < buffer.length; lag++) {
+                    let sum = 0;
+                    for (let i = 0; i < buffer.length - lag; i++) sum += buffer[i] * buffer[i + lag];
+                    correlations[lag] = sum;
+                }
+
+                let peakLag = 0, peakValue = 0;
+                for (let lag = Math.floor(ptAudioContext.sampleRate / 1000); lag < Math.floor(ptAudioContext.sampleRate / 50); lag++) {
+                    if (correlations[lag] > peakValue) {
+                        peakValue = correlations[lag];
+                        peakLag = lag;
+                    }
+                }
+
+                if (peakLag === 0) return null;
+                return ptAudioContext.sampleRate / peakLag;
+            }
+
+            function ptFrequencyToNote(frequency) {
+                if (!frequency || frequency < 50 || frequency > 1000) return null;
+
+                let closestNote = null, minDiff = Infinity, cents = 0;
+                for (const [note, freq] of Object.entries(ptNoteFrequencies)) {
+                    const diff = Math.abs(frequency - freq);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestNote = note;
+                        cents = 1200 * Math.log2(frequency / freq);
+                    }
+                }
+                return { note: closestNote, cents: Math.round(cents), frequency };
+            }
+
+            function ptAddFallingNote(note, type = 'target') {
+                const noteIndex = ptNoteNames.indexOf(note);
+                if (noteIndex === -1) return;
+                ptFallingNotes.push({ note, noteIndex, y: 0, height: 50, type });
+            }
+
+            function ptDrawGame() {
+                ptCtx.clearRect(0, 0, ptCanvas.width, ptCanvas.height);
+
+                const noteWidth = ptCanvas.width / ptNoteNames.length;
+                const height = ptCanvas.height;
+
+                // Grid
+                ptCtx.strokeStyle = '#e0e0e0';
+                ptCtx.lineWidth = 1;
+                for (let i = 0; i <= ptNoteNames.length; i++) {
+                    const x = i * noteWidth;
+                    ptCtx.beginPath();
+                    ptCtx.moveTo(x, 0);
+                    ptCtx.lineTo(x, height);
+                    ptCtx.stroke();
+
+                    if (i < ptNoteNames.length && ptNoteNames[i].includes('#')) {
+                        ptCtx.fillStyle = 'rgba(200, 200, 200, 0.3)';
+                        ptCtx.fillRect(x, 0, noteWidth, height);
+                    }
+                }
+
+                // Target column
+                const targetIndex = ptNoteNames.indexOf(ptTargetNote);
+                if (targetIndex !== -1) {
+                    ptCtx.fillStyle = 'rgba(102, 126, 234, 0.15)';
+                    ptCtx.fillRect(targetIndex * noteWidth, 0, noteWidth, height);
+                }
+
+                // Falling notes
+                ptFallingNotes.forEach((note, index) => {
+                    const x = note.noteIndex * noteWidth + 2;
+                    const width = noteWidth - 4;
+
+                    let color;
+                    switch (note.type) {
+                        case 'target': color = '#667eea'; break;
+                        case 'correct': color = '#4caf50'; break;
+                        case 'close': color = '#ffeb3b'; break;
+                        case 'wrong': color = 'rgba(244, 67, 54, 0.5)'; break;
+                        default: color = '#667eea';
+                    }
+
+                    ptCtx.fillStyle = color;
+                    ptCtx.fillRect(x, note.y, width, note.height);
+                    note.y += 2;
+
+                    if (note.y > height) ptFallingNotes.splice(index, 1);
+                });
+
+                if (ptIsTestRunning) ptAnimationId = requestAnimationFrame(ptDrawGame);
+            }
+
+            async function ptStartTest() {
+                if (ptIsTestRunning) {
+                    ptStopTest();
+                    return;
+                }
+
+                const success = await ptSetupMicrophone();
+                if (!success) return;
+
+                ptIsTestRunning = true;
+                ptIsListening = true;
+                ptUserPitchHistory = [];
+                document.getElementById('ptTestBtn').textContent = '⏹ Detener';
+
+                ptPlayTargetNote();
+                ptDetectPitchLoop();
+                ptDrawGame();
+            }
+
+            function ptStopTest() {
+                ptIsTestRunning = false;
+                ptIsListening = false;
+                if (ptAnimationId) cancelAnimationFrame(ptAnimationId);
+                document.getElementById('ptTestBtn').textContent = '▶ Comenzar Test';
+                document.getElementById('ptFeedback').className = 'pt-feedback';
+            }
+
+            function ptDetectPitchLoop() {
+                if (!ptIsListening) return;
+
+                const frequency = ptDetectPitch();
+                const result = ptFrequencyToNote(frequency);
+
+                if (result) {
+                    document.getElementById('ptDetectedNote').textContent = result.note;
+                    document.getElementById('ptCentsValue').textContent = result.cents;
+
+                    document.querySelectorAll('.pt-white-key, .pt-black-key').forEach(key => {
+                        key.classList.remove('active');
+                        if (key.dataset.note === result.note) key.classList.add('active');
+                    });
+
+                    const feedback = document.getElementById('ptFeedback');
+                    const centsDiff = Math.abs(result.cents);
+
+                    if (result.note === ptTargetNote && centsDiff < 20) {
+                        feedback.textContent = '✓ Perfecto!';
+                        feedback.className = 'pt-feedback correct';
+                        ptScore += 10;
+                        ptAddFallingNote(result.note, 'correct');
+                    } else if (result.note === ptTargetNote || centsDiff < 50) {
+                        feedback.textContent = '~ Cerca!';
+                        feedback.className = 'pt-feedback close';
+                        ptScore += 2;
+                        ptAddFallingNote(result.note, 'close');
+                    } else {
+                        feedback.textContent = '✗ Desafinado';
+                        feedback.className = 'pt-feedback wrong';
+                        ptAddFallingNote(result.note, 'wrong');
+                    }
+
+                    document.getElementById('ptScore').textContent = ptScore;
+                } else {
+                    document.getElementById('ptDetectedNote').textContent = '--';
+                }
+
+                setTimeout(ptDetectPitchLoop, 100);
+            }
+
+            // Event listeners
+            document.getElementById('ptListenBtn').addEventListener('click', ptPlayTargetNote);
+            document.getElementById('ptTestBtn').addEventListener('click', ptStartTest);
+
+            // Initialize
+            ptBuildPiano();
+            ptSelectNote('C3');
+            ptDrawGame();
+        })();
+    </script>
+
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="app-final.js"></script>
 </body>
