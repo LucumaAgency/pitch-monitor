@@ -297,6 +297,18 @@
                 </div>
             </div>
 
+            <div class="pt-voice-selector">
+                <span class="pt-voice-label">Tipo de voz:</span>
+                <select id="ptVoiceSelect" class="pt-voice-dropdown">
+                    <option value="bass">Bajo (E2 - E4)</option>
+                    <option value="baritone">Barítono (A2 - A4)</option>
+                    <option value="tenor" selected>Tenor (C3 - C5)</option>
+                    <option value="alto">Contralto (F3 - F5)</option>
+                    <option value="mezzo">Mezzosoprano (A3 - A5)</option>
+                    <option value="soprano">Soprano (C4 - C6)</option>
+                </select>
+            </div>
+
             <div class="pt-level-selector">
                 <span class="pt-level-label">Nivel:</span>
                 <select id="ptLevelSelect" class="pt-level-dropdown">
@@ -463,6 +475,31 @@
             border-radius: 0 0 3px 3px;
         }
 
+        .pt-voice-selector {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 15px;
+            background: #fff0f5;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .pt-voice-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .pt-voice-dropdown {
+            padding: 8px 12px;
+            border: 2px solid #e91e63;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            min-width: 200px;
+        }
+
         .pt-level-selector {
             display: flex;
             align-items: center;
@@ -598,7 +635,54 @@
             let ptCurrentUserNote = null; // Nota actual del usuario
             let ptUserNoteHistory = []; // Historial para la linea roja
             let ptCurrentLevel = '0.1';
+            let ptCurrentVoice = 'tenor';
             let ptNoteSpeed = 1; // Velocidad de caida
+
+            // Definicion de rangos vocales
+            const ptVoiceRanges = {
+                'bass': {
+                    name: 'Bajo',
+                    low: 'E2',
+                    high: 'E4',
+                    default: 'E2',
+                    notes: ['E2', 'F2', 'G2', 'A2', 'B2', 'C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4']
+                },
+                'baritone': {
+                    name: 'Barítono',
+                    low: 'A2',
+                    high: 'A4',
+                    default: 'A2',
+                    notes: ['A2', 'B2', 'C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4']
+                },
+                'tenor': {
+                    name: 'Tenor',
+                    low: 'C3',
+                    high: 'C5',
+                    default: 'C3',
+                    notes: ['C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5']
+                },
+                'alto': {
+                    name: 'Contralto',
+                    low: 'F3',
+                    high: 'F5',
+                    default: 'F3',
+                    notes: ['F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5']
+                },
+                'mezzo': {
+                    name: 'Mezzosoprano',
+                    low: 'A3',
+                    high: 'A5',
+                    default: 'A3',
+                    notes: ['A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5', 'A5']
+                },
+                'soprano': {
+                    name: 'Soprano',
+                    low: 'C4',
+                    high: 'C6',
+                    default: 'C4',
+                    notes: ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5', 'A5', 'B5', 'C6']
+                }
+            };
 
             // Definicion de niveles
             const ptLevels = {
@@ -667,7 +751,9 @@
                 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
                 'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23,
                 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
-                'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46
+                'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46,
+                'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.00, 'A#5': 932.33, 'B5': 987.77,
+                'C6': 1046.50
             };
 
             const ptNoteNames = Object.keys(ptNoteFrequencies);
@@ -687,14 +773,32 @@
                 const noteButtons = document.getElementById('ptNoteButtons');
                 noteButtons.innerHTML = '';
 
-                const commonNotes = ['C2', 'C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'C5'];
-                commonNotes.forEach(note => {
+                const voiceRange = ptVoiceRanges[ptCurrentVoice];
+                const availableNotes = voiceRange.notes;
+
+                availableNotes.forEach(note => {
                     const btn = document.createElement('button');
                     btn.className = 'pt-note-btn' + (note === ptTargetNote ? ' selected' : '');
                     btn.textContent = note;
                     btn.onclick = () => ptSelectNote(note);
                     noteButtons.appendChild(btn);
                 });
+            }
+
+            function ptChangeVoice(voiceType) {
+                ptCurrentVoice = voiceType;
+                const voiceRange = ptVoiceRanges[voiceType];
+
+                // Actualizar nota inicial al default del rango
+                ptTargetNote = voiceRange.default;
+                ptTargetFrequency = ptNoteFrequencies[ptTargetNote];
+
+                // Reconstruir selector de notas
+                ptBuildNoteSelector();
+
+                // Limpiar estado
+                ptFallingNotes = [];
+                ptUserNoteHistory = [];
             }
 
             function ptUpdateLevelInfo() {
@@ -1141,6 +1245,11 @@
             // Event listeners
             document.getElementById('ptListenBtn').addEventListener('click', ptListenSequence);
             document.getElementById('ptTestBtn').addEventListener('click', ptStartTest);
+
+            // Voice selector
+            document.getElementById('ptVoiceSelect').addEventListener('change', function(e) {
+                ptChangeVoice(e.target.value);
+            });
 
             // Level selector
             document.getElementById('ptLevelSelect').addEventListener('change', function(e) {
