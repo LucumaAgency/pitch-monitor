@@ -400,16 +400,53 @@
         }
 
         .pt-game-container {
-            background: #f9f9f9;
+            background: #f5f5f5;
             border-radius: 10px;
-            height: 300px;
+            height: 450px;
             margin-bottom: 15px;
             overflow: hidden;
+            position: relative;
         }
 
         #ptGameCanvas {
             width: 100%;
             height: 100%;
+        }
+
+        .pt-piano-overlay {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 70px;
+            background: white;
+            border-top: 2px solid #333;
+            border-bottom: 2px solid #333;
+            display: flex;
+            overflow-x: auto;
+            z-index: 10;
+        }
+
+        .pt-piano-overlay .pt-key {
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .pt-piano-overlay .pt-white-key-overlay {
+            width: 28px;
+            height: 70px;
+            background: white;
+            border-right: 1px solid #ccc;
+        }
+
+        .pt-piano-overlay .pt-black-key-overlay {
+            width: 18px;
+            height: 45px;
+            background: #333;
+            position: absolute;
+            z-index: 2;
+            border-radius: 0 0 3px 3px;
         }
 
         .pt-piano-container {
@@ -569,8 +606,9 @@
             let ptTargetNote = 'C3';
             let ptTargetFrequency = 130.81;
             let ptScore = 0;
-            let ptPitchTrail = []; // Trail de pitch del usuario que baja
-            let ptMaxTrailLength = 200;
+            let ptFallingNotes = []; // Notas azules que caen
+            let ptCurrentUserNote = null; // Nota actual del usuario
+            let ptUserNoteHistory = []; // Historial para la linea roja
 
             const ptNoteFrequencies = {
                 'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31,
@@ -652,7 +690,8 @@
             function ptSelectNote(note) {
                 ptTargetNote = note;
                 ptTargetFrequency = ptNoteFrequencies[note];
-                ptPitchTrail = []; // Reset trail
+                ptFallingNotes = [];
+                ptUserNoteHistory = [];
 
                 document.querySelectorAll('.pt-note-btn').forEach(btn => {
                     btn.classList.remove('selected');
@@ -686,6 +725,16 @@
 
             function ptPlayTargetNote() {
                 ptPlayNote(ptTargetFrequency, 1.5);
+                // Agregar nota que cae
+                const noteIndex = ptNoteNames.indexOf(ptTargetNote);
+                ptFallingNotes.push({
+                    noteIndex: noteIndex,
+                    note: ptTargetNote,
+                    y: 0,
+                    height: 60,
+                    evaluated: false,
+                    color: '#3b82f6' // Azul
+                });
             }
 
             async function ptSetupMicrophone() {
@@ -767,10 +816,11 @@
 
                 const noteWidth = ptCanvas.width / ptNoteNames.length;
                 const height = ptCanvas.height;
-                const pianoLineY = height - 5; // Linea donde esta el piano
+                const pianoY = height * 0.45; // Posicion del piano (45% desde arriba)
+                const pianoHeight = 60;
 
-                // Dibujar grid vertical (columnas de notas alineadas con teclas)
-                ptCtx.strokeStyle = '#e8e8e8';
+                // Dibujar grid vertical (columnas de notas)
+                ptCtx.strokeStyle = '#e0e0e0';
                 ptCtx.lineWidth = 1;
                 for (let i = 0; i <= ptNoteNames.length; i++) {
                     const x = i * noteWidth;
@@ -781,110 +831,144 @@
 
                     // Sombrear columnas de teclas negras
                     if (i < ptNoteNames.length && ptNoteNames[i].includes('#')) {
-                        ptCtx.fillStyle = 'rgba(200, 200, 200, 0.2)';
+                        ptCtx.fillStyle = 'rgba(200, 200, 200, 0.15)';
                         ptCtx.fillRect(x, 0, noteWidth, height);
                     }
                 }
 
-                // Dibujar lineas horizontales de tiempo
-                ptCtx.strokeStyle = '#f5f5f5';
-                for (let y = 0; y < height; y += 40) {
-                    ptCtx.beginPath();
-                    ptCtx.moveTo(0, y);
-                    ptCtx.lineTo(ptCanvas.width, y);
-                    ptCtx.stroke();
-                }
+                // Dibujar piano en el medio
+                ptCtx.fillStyle = 'white';
+                ptCtx.fillRect(0, pianoY, ptCanvas.width, pianoHeight);
+                ptCtx.strokeStyle = '#333';
+                ptCtx.lineWidth = 2;
+                ptCtx.strokeRect(0, pianoY, ptCanvas.width, pianoHeight);
 
-                // NOTA OBJETIVO: Barra VERTICAL azul (alineada con la tecla del piano)
-                const targetIndex = ptNoteNames.indexOf(ptTargetNote);
-                if (targetIndex !== -1) {
-                    const targetX = targetIndex * noteWidth;
+                // Teclas del piano
+                for (let i = 0; i < ptNoteNames.length; i++) {
+                    const x = i * noteWidth;
+                    const isBlack = ptNoteNames[i].includes('#');
 
-                    // Columna resaltada suave
-                    ptCtx.fillStyle = 'rgba(102, 126, 234, 0.08)';
-                    ptCtx.fillRect(targetX, 0, noteWidth, height);
+                    if (!isBlack) {
+                        // Tecla blanca
+                        ptCtx.fillStyle = 'white';
+                        ptCtx.fillRect(x, pianoY, noteWidth, pianoHeight);
+                        ptCtx.strokeStyle = '#999';
+                        ptCtx.lineWidth = 1;
+                        ptCtx.strokeRect(x, pianoY, noteWidth, pianoHeight);
 
-                    // Barra vertical azul (la nota objetivo que debes cantar)
-                    // Empieza desde arriba y baja un poco
-                    ptCtx.fillStyle = '#3b82f6';
-                    ptCtx.fillRect(targetX + 4, 20, noteWidth - 8, 80);
-
-                    // Borde de la barra
-                    ptCtx.strokeStyle = '#2563eb';
-                    ptCtx.lineWidth = 2;
-                    ptCtx.strokeRect(targetX + 4, 20, noteWidth - 8, 80);
-                }
-
-                // TU VOZ: Linea vertical roja que baja (trail de pitch)
-                if (ptPitchTrail.length > 0) {
-                    // Dibujar el trail completo
-                    for (let i = 0; i < ptPitchTrail.length; i++) {
-                        const point = ptPitchTrail[i];
-                        if (point.noteIndex === null) continue;
-
-                        const x = point.noteIndex * noteWidth + noteWidth / 2;
-                        // Y: el mas reciente esta arriba (cerca del piano line), el mas viejo abajo
-                        const y = pianoLineY - (ptPitchTrail.length - i) * 2.5;
-
-                        if (y < 0) continue;
-
-                        // Color segun precision
-                        let color;
-                        if (point.status === 'perfect') {
-                            color = '#22c55e'; // Verde
-                        } else if (point.status === 'close') {
-                            color = '#eab308'; // Amarillo
-                        } else {
-                            color = '#ef4444'; // Rojo
-                        }
-
-                        // Dibujar segmento vertical
-                        ptCtx.fillStyle = color;
-                        ptCtx.fillRect(x - 2, y, 4, 3);
-
-                        // Conectar con punto anterior si existe y es valido
-                        if (i > 0 && ptPitchTrail[i-1].noteIndex !== null) {
-                            const prevPoint = ptPitchTrail[i-1];
-                            const prevX = prevPoint.noteIndex * noteWidth + noteWidth / 2;
-                            const prevY = pianoLineY - (ptPitchTrail.length - i + 1) * 2.5;
-
-                            if (prevY >= 0) {
-                                ptCtx.strokeStyle = color;
-                                ptCtx.lineWidth = 3;
-                                ptCtx.beginPath();
-                                ptCtx.moveTo(prevX, prevY);
-                                ptCtx.lineTo(x, y);
-                                ptCtx.stroke();
-                            }
+                        // Label de octava en C
+                        if (ptNoteNames[i].startsWith('C') && !ptNoteNames[i].includes('#')) {
+                            ptCtx.fillStyle = '#667eea';
+                            ptCtx.font = 'bold 10px Arial';
+                            ptCtx.textAlign = 'center';
+                            ptCtx.fillText(ptNoteNames[i], x + noteWidth/2, pianoY + pianoHeight - 5);
                         }
                     }
+                }
 
-                    // Punto actual (indicador de donde estas cantando ahora)
-                    const latest = ptPitchTrail[ptPitchTrail.length - 1];
-                    if (latest.noteIndex !== null) {
-                        const x = latest.noteIndex * noteWidth + noteWidth / 2;
-                        const y = pianoLineY;
+                // Teclas negras (encima)
+                for (let i = 0; i < ptNoteNames.length; i++) {
+                    const x = i * noteWidth;
+                    const isBlack = ptNoteNames[i].includes('#');
 
-                        let color = latest.status === 'perfect' ? '#22c55e' :
-                                    latest.status === 'close' ? '#eab308' : '#ef4444';
+                    if (isBlack) {
+                        ptCtx.fillStyle = '#333';
+                        ptCtx.fillRect(x + 2, pianoY, noteWidth - 4, pianoHeight * 0.6);
+                    }
+                }
 
-                        // Linea vertical desde el punto actual hacia arriba
-                        ptCtx.strokeStyle = color;
-                        ptCtx.lineWidth = 2;
+                // Resaltar tecla objetivo
+                const targetIndex = ptNoteNames.indexOf(ptTargetNote);
+                if (targetIndex !== -1) {
+                    const x = targetIndex * noteWidth;
+                    const isBlack = ptTargetNote.includes('#');
+                    ptCtx.fillStyle = 'rgba(255, 200, 200, 0.5)';
+                    ptCtx.fillRect(x, pianoY, noteWidth, isBlack ? pianoHeight * 0.6 : pianoHeight);
+                }
+
+                // NOTAS QUE CAEN (azules arriba, cambian color abajo)
+                ptFallingNotes.forEach((note, idx) => {
+                    const x = note.noteIndex * noteWidth + 3;
+                    const width = noteWidth - 6;
+
+                    // Evaluar cuando cruza el piano
+                    if (!note.evaluated && note.y + note.height > pianoY) {
+                        note.evaluated = true;
+                        // Verificar si el usuario esta cantando la nota correcta
+                        if (ptCurrentUserNote === note.note) {
+                            note.color = '#22c55e'; // Verde - correcto!
+                            ptScore += 10;
+                        } else if (ptCurrentUserNote && Math.abs(ptNoteNames.indexOf(ptCurrentUserNote) - note.noteIndex) <= 1) {
+                            note.color = '#eab308'; // Amarillo - cerca
+                            ptScore += 3;
+                        } else {
+                            note.color = '#ef4444'; // Rojo - incorrecto
+                        }
+                        document.getElementById('ptScore').textContent = ptScore;
+                    }
+
+                    // Dibujar la nota
+                    ptCtx.fillStyle = note.color;
+                    ptCtx.fillRect(x, note.y, width, note.height);
+
+                    // Borde
+                    ptCtx.strokeStyle = note.evaluated ? note.color : '#2563eb';
+                    ptCtx.lineWidth = 2;
+                    ptCtx.strokeRect(x, note.y, width, note.height);
+
+                    // Mover hacia abajo
+                    note.y += 2;
+
+                    // Eliminar si sale de pantalla
+                    if (note.y > height) {
+                        ptFallingNotes.splice(idx, 1);
+                    }
+                });
+
+                // LINEA ROJA VERTICAL - Tu voz (donde estas cantando)
+                if (ptCurrentUserNote) {
+                    const userNoteIndex = ptNoteNames.indexOf(ptCurrentUserNote);
+                    if (userNoteIndex !== -1) {
+                        const x = userNoteIndex * noteWidth + noteWidth / 2;
+
+                        // Linea vertical roja que atraviesa todo
+                        ptCtx.strokeStyle = '#ef4444';
+                        ptCtx.lineWidth = 3;
                         ptCtx.beginPath();
-                        ptCtx.moveTo(x, y);
-                        ptCtx.lineTo(x, y - 20);
+                        ptCtx.moveTo(x, 0);
+                        ptCtx.lineTo(x, height);
                         ptCtx.stroke();
 
-                        // Circulo indicador
-                        ptCtx.fillStyle = color;
+                        // Indicador circular en el piano
+                        ptCtx.fillStyle = '#ef4444';
                         ptCtx.beginPath();
-                        ptCtx.arc(x, y, 6, 0, Math.PI * 2);
+                        ptCtx.arc(x, pianoY + pianoHeight/2, 8, 0, Math.PI * 2);
                         ptCtx.fill();
-
                         ptCtx.strokeStyle = 'white';
                         ptCtx.lineWidth = 2;
                         ptCtx.stroke();
+                    }
+                }
+
+                // Historial de notas del usuario (trail debajo del piano)
+                if (ptUserNoteHistory.length > 1) {
+                    for (let i = 1; i < ptUserNoteHistory.length; i++) {
+                        const prev = ptUserNoteHistory[i-1];
+                        const curr = ptUserNoteHistory[i];
+                        if (prev.noteIndex === null || curr.noteIndex === null) continue;
+
+                        const prevX = prev.noteIndex * noteWidth + noteWidth / 2;
+                        const currX = curr.noteIndex * noteWidth + noteWidth / 2;
+                        const y = pianoY + pianoHeight + 10 + (ptUserNoteHistory.length - i) * 2;
+
+                        if (y < height) {
+                            ptCtx.strokeStyle = curr.color;
+                            ptCtx.lineWidth = 3;
+                            ptCtx.beginPath();
+                            ptCtx.moveTo(prevX, y + 2);
+                            ptCtx.lineTo(currX, y);
+                            ptCtx.stroke();
+                        }
                     }
                 }
 
@@ -902,7 +986,9 @@
 
                 ptIsTestRunning = true;
                 ptIsListening = true;
-                ptPitchTrail = [];
+                ptFallingNotes = [];
+                ptUserNoteHistory = [];
+                ptCurrentUserNote = null;
                 ptScore = 0;
                 document.getElementById('ptScore').textContent = '0';
                 document.getElementById('ptTestBtn').textContent = '⏹ Detener';
@@ -915,6 +1001,7 @@
             function ptStopTest() {
                 ptIsTestRunning = false;
                 ptIsListening = false;
+                ptCurrentUserNote = null;
                 if (ptAnimationId) cancelAnimationFrame(ptAnimationId);
                 document.getElementById('ptTestBtn').textContent = '▶ Comenzar Test';
                 document.getElementById('ptFeedback').className = 'pt-feedback';
@@ -930,7 +1017,10 @@
                     document.getElementById('ptDetectedNote').textContent = result.note;
                     document.getElementById('ptCentsValue').textContent = result.cents;
 
-                    // Resaltar tecla actual
+                    // Actualizar nota actual del usuario
+                    ptCurrentUserNote = result.note;
+
+                    // Resaltar tecla actual en el piano de abajo
                     document.querySelectorAll('.pt-white-key, .pt-black-key').forEach(key => {
                         key.classList.remove('active');
                         if (key.dataset.note === result.note) key.classList.add('active');
@@ -941,57 +1031,50 @@
                     const noteIndex = ptNoteNames.indexOf(result.note);
                     const targetIndex = ptNoteNames.indexOf(ptTargetNote);
 
-                    // Determinar status
-                    let status;
+                    // Determinar color para el historial
+                    let color;
                     if (result.note === ptTargetNote && centsDiff < 20) {
-                        status = 'perfect';
+                        color = '#22c55e'; // Verde
                         feedback.textContent = '✓ Perfecto!';
                         feedback.className = 'pt-feedback correct';
-                        ptScore += 10;
                     } else if (result.note === ptTargetNote || Math.abs(noteIndex - targetIndex) <= 1) {
-                        status = 'close';
+                        color = '#eab308'; // Amarillo
                         feedback.textContent = '~ Cerca!';
                         feedback.className = 'pt-feedback close';
-                        ptScore += 2;
                     } else {
-                        status = 'wrong';
+                        color = '#ef4444'; // Rojo
                         feedback.textContent = '✗ Desafinado';
                         feedback.className = 'pt-feedback wrong';
                     }
 
-                    // Agregar al trail
-                    ptPitchTrail.push({
+                    // Agregar al historial
+                    ptUserNoteHistory.push({
                         noteIndex: noteIndex,
                         note: result.note,
-                        cents: result.cents,
-                        frequency: result.frequency,
-                        status: status,
-                        timestamp: Date.now()
+                        color: color
                     });
 
-                    // Limitar longitud del trail
-                    if (ptPitchTrail.length > ptMaxTrailLength) {
-                        ptPitchTrail.shift();
+                    // Limitar historial
+                    if (ptUserNoteHistory.length > 100) {
+                        ptUserNoteHistory.shift();
                     }
-
-                    document.getElementById('ptScore').textContent = ptScore;
                 } else {
                     document.getElementById('ptDetectedNote').textContent = '--';
+                    ptCurrentUserNote = null;
 
-                    // Agregar punto nulo al trail (silencio)
-                    ptPitchTrail.push({
+                    // Agregar silencio al historial
+                    ptUserNoteHistory.push({
                         noteIndex: null,
                         note: null,
-                        status: 'silent',
-                        timestamp: Date.now()
+                        color: '#ccc'
                     });
 
-                    if (ptPitchTrail.length > ptMaxTrailLength) {
-                        ptPitchTrail.shift();
+                    if (ptUserNoteHistory.length > 100) {
+                        ptUserNoteHistory.shift();
                     }
                 }
 
-                setTimeout(ptDetectPitchLoop, 50); // Mas rapido para mejor trail
+                setTimeout(ptDetectPitchLoop, 50);
             }
 
             // Event listeners
