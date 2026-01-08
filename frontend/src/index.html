@@ -297,16 +297,30 @@
                 </div>
             </div>
 
+            <div class="pt-level-selector">
+                <span class="pt-level-label">Nivel:</span>
+                <select id="ptLevelSelect" class="pt-level-dropdown">
+                    <option value="0.1">0.1 - The Simplest Start</option>
+                    <option value="0.2">0.2 - Simple Start #2</option>
+                    <option value="0.3">0.3 - Major Breath</option>
+                    <option value="1">1 - Climb the Major Ladder</option>
+                    <option value="2">2 - Mingle Around the Height</option>
+                    <option value="3">3 - Going Wider</option>
+                    <option value="4">4 - A Glide with a Twist</option>
+                    <option value="5">5 - Major Scale (Full)</option>
+                </select>
+                <div class="pt-level-info" id="ptLevelInfo">
+                    <span class="pt-level-tags">Pitch tuning, Major, Easy</span>
+                    <span class="pt-level-desc">Start your warm-up from this simple sequence</span>
+                </div>
+            </div>
+
             <div class="pt-game-container">
                 <canvas id="ptGameCanvas"></canvas>
             </div>
 
-            <div class="pt-piano-container">
-                <div class="pt-piano" id="ptPiano"></div>
-            </div>
-
             <div class="pt-note-selector">
-                <span class="pt-note-selector-label">Nota objetivo:</span>
+                <span class="pt-note-selector-label">Nota inicial:</span>
                 <div class="pt-note-buttons" id="ptNoteButtons"></div>
             </div>
 
@@ -449,75 +463,49 @@
             border-radius: 0 0 3px 3px;
         }
 
-        .pt-piano-container {
-            background: white;
-            border-radius: 10px;
-            padding: 10px;
-            overflow-x: auto;
-            margin-bottom: 15px;
-            border: 2px solid #333;
-        }
-
-        .pt-piano {
+        .pt-level-selector {
             display: flex;
-            height: 80px;
-            position: relative;
-            min-width: max-content;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #f0f4ff;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
         }
 
-        .pt-white-key {
-            width: 35px;
-            height: 80px;
-            background: white;
-            border: 1px solid #333;
-            cursor: pointer;
-            position: relative;
-            z-index: 1;
-            flex-shrink: 0;
-        }
-
-        .pt-white-key:hover {
-            background: #eee;
-        }
-
-        .pt-white-key.active {
-            background: #ffeb3b;
-        }
-
-        .pt-white-key.target {
-            background: rgba(102, 126, 234, 0.3);
-        }
-
-        .pt-black-key {
-            width: 22px;
-            height: 50px;
-            background: #333;
-            position: absolute;
-            z-index: 2;
-            cursor: pointer;
-            border-radius: 0 0 3px 3px;
-        }
-
-        .pt-black-key:hover {
-            background: #555;
-        }
-
-        .pt-black-key.active {
-            background: #ffc107;
-        }
-
-        .pt-black-key.target {
-            background: rgba(102, 126, 234, 0.8);
-        }
-
-        .pt-octave-label {
-            position: absolute;
-            bottom: 5px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 10px;
+        .pt-level-label {
             font-weight: bold;
+            color: #333;
+        }
+
+        .pt-level-dropdown {
+            padding: 8px 12px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            min-width: 250px;
+        }
+
+        .pt-level-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .pt-level-tags {
+            font-size: 11px;
             color: #667eea;
+            font-weight: 500;
+        }
+
+        .pt-level-desc {
+            font-size: 13px;
+            color: #666;
         }
 
         .pt-note-selector {
@@ -609,6 +597,68 @@
             let ptFallingNotes = []; // Notas azules que caen
             let ptCurrentUserNote = null; // Nota actual del usuario
             let ptUserNoteHistory = []; // Historial para la linea roja
+            let ptCurrentLevel = '0.1';
+            let ptNoteSpeed = 1; // Velocidad de caida
+
+            // Definicion de niveles
+            const ptLevels = {
+                '0.1': {
+                    title: 'The Simplest Start',
+                    tags: 'Pitch tuning, Major, Easy',
+                    desc: 'Start your warm-up from this simple sequence',
+                    sequence: ['C', 'D', 'E', 'D', 'C'], // Secuencia relativa a nota base
+                    tempo: 1200
+                },
+                '0.2': {
+                    title: 'Simple Start #2',
+                    tags: 'Pitch tuning, Major, Easy',
+                    desc: 'Another simple scale',
+                    sequence: ['C', 'D', 'E', 'F', 'E', 'D', 'C'],
+                    tempo: 1100
+                },
+                '0.3': {
+                    title: 'Major Breath',
+                    tags: 'Pitch tuning, Duration, Major, Diatonic, Easy',
+                    desc: 'The melody is simple, but can you sing it with one breath?',
+                    sequence: ['C', 'D', 'E', 'F', 'G', 'F', 'E', 'D', 'C'],
+                    tempo: 1000
+                },
+                '1': {
+                    title: 'Climb the Major Ladder',
+                    tags: 'Pitch tuning, Arpeggio, Major, Average',
+                    desc: "Let's make the melody a bit more interesting",
+                    sequence: ['C', 'E', 'G', 'E', 'C', 'G', 'E', 'C'],
+                    tempo: 900
+                },
+                '2': {
+                    title: 'Mingle Around the Height',
+                    tags: 'Range Ext., Speed, Arpeggio, Major, Average',
+                    desc: 'Melody moves up and jumps around the high part',
+                    sequence: ['C', 'D', 'E', 'G', 'A', 'G', 'E', 'D', 'C'],
+                    tempo: 800
+                },
+                '3': {
+                    title: 'Going Wider',
+                    tags: 'Range Ext., Arpeggio, Major, Challenging',
+                    desc: "Let's cover the whole octave",
+                    sequence: ['C', 'E', 'G', 'C5', 'G', 'E', 'C'],
+                    tempo: 900
+                },
+                '4': {
+                    title: 'A Glide with a Twist',
+                    tags: 'Range Ext., Duration, Major, Diatonic, Challenging',
+                    desc: 'The melody glides all the way down, until the final jump happens',
+                    sequence: ['C5', 'B', 'A', 'G', 'F', 'E', 'D', 'C', 'G'],
+                    tempo: 850
+                },
+                '5': {
+                    title: 'Major Scale (Full)',
+                    tags: 'Range Ext., Duration, Major, Diatonic, Average',
+                    desc: 'Build your foundation',
+                    sequence: ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C5', 'B', 'A', 'G', 'F', 'E', 'D', 'C'],
+                    tempo: 700
+                }
+            };
 
             const ptNoteFrequencies = {
                 'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31,
@@ -633,57 +683,66 @@
             window.addEventListener('resize', ptResizeCanvas);
             ptResizeCanvas();
 
-            function ptBuildPiano() {
-                const piano = document.getElementById('ptPiano');
+            function ptBuildNoteSelector() {
                 const noteButtons = document.getElementById('ptNoteButtons');
-                piano.innerHTML = '';
                 noteButtons.innerHTML = '';
 
-                const whiteNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-                const blackNoteOffsets = { 'C': true, 'D': true, 'F': true, 'G': true, 'A': true };
-                let whiteKeyIndex = 0;
-
-                for (let octave = 2; octave <= 5; octave++) {
-                    whiteNotes.forEach((note) => {
-                        const noteName = `${note}${octave}`;
-                        if (!ptNoteFrequencies[noteName]) return;
-
-                        const whiteKey = document.createElement('div');
-                        whiteKey.className = 'pt-white-key';
-                        whiteKey.dataset.note = noteName;
-                        whiteKey.onclick = () => ptSelectNote(noteName);
-
-                        if (note === 'C') {
-                            const label = document.createElement('span');
-                            label.className = 'pt-octave-label';
-                            label.textContent = `C${octave}`;
-                            whiteKey.appendChild(label);
-                        }
-
-                        piano.appendChild(whiteKey);
-
-                        if (blackNoteOffsets[note]) {
-                            const blackNoteName = `${note}#${octave}`;
-                            if (ptNoteFrequencies[blackNoteName]) {
-                                const blackKey = document.createElement('div');
-                                blackKey.className = 'pt-black-key';
-                                blackKey.dataset.note = blackNoteName;
-                                blackKey.style.left = `${(whiteKeyIndex + 1) * 35 - 11}px`;
-                                blackKey.onclick = () => ptSelectNote(blackNoteName);
-                                piano.appendChild(blackKey);
-                            }
-                        }
-                        whiteKeyIndex++;
-                    });
-                }
-
-                const commonNotes = ['C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4'];
+                const commonNotes = ['C2', 'C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'C5'];
                 commonNotes.forEach(note => {
                     const btn = document.createElement('button');
                     btn.className = 'pt-note-btn' + (note === ptTargetNote ? ' selected' : '');
                     btn.textContent = note;
                     btn.onclick = () => ptSelectNote(note);
                     noteButtons.appendChild(btn);
+                });
+            }
+
+            function ptUpdateLevelInfo() {
+                const level = ptLevels[ptCurrentLevel];
+                if (level) {
+                    document.querySelector('.pt-level-tags').textContent = level.tags;
+                    document.querySelector('.pt-level-desc').textContent = level.desc;
+                }
+            }
+
+            function ptGetNoteFromSequence(seqNote, baseOctave) {
+                // Convertir nota de secuencia a nota real basada en la octava seleccionada
+                if (seqNote.includes('5')) {
+                    // Nota en octava superior
+                    return seqNote.replace('5', '') + (baseOctave + 1);
+                }
+                return seqNote + baseOctave;
+            }
+
+            function ptStartSequence() {
+                const level = ptLevels[ptCurrentLevel];
+                if (!level) return;
+
+                const baseOctave = parseInt(ptTargetNote.match(/\d+/)[0]);
+                let delay = 0;
+
+                level.sequence.forEach((seqNote, index) => {
+                    setTimeout(() => {
+                        const realNote = ptGetNoteFromSequence(seqNote, baseOctave);
+                        const noteIndex = ptNoteNames.indexOf(realNote);
+
+                        if (noteIndex !== -1) {
+                            // Reproducir sonido
+                            ptPlayNote(ptNoteFrequencies[realNote], 0.8);
+
+                            // Agregar nota que cae
+                            ptFallingNotes.push({
+                                noteIndex: noteIndex,
+                                note: realNote,
+                                y: -60,
+                                height: 50,
+                                evaluated: false,
+                                color: '#3b82f6'
+                            });
+                        }
+                    }, delay);
+
+                    delay += level.tempo;
                 });
             }
 
@@ -697,14 +756,6 @@
                     btn.classList.remove('selected');
                     if (btn.textContent === note) btn.classList.add('selected');
                 });
-
-                document.querySelectorAll('.pt-white-key, .pt-black-key').forEach(key => {
-                    key.classList.remove('target');
-                    if (key.dataset.note === note) key.classList.add('target');
-                });
-
-                const targetKey = document.querySelector(`.pt-piano [data-note="${note}"]`);
-                if (targetKey) targetKey.scrollIntoView({ behavior: 'smooth', inline: 'center' });
             }
 
             function ptPlayNote(frequency, duration = 1) {
@@ -724,16 +775,26 @@
             }
 
             function ptPlayTargetNote() {
+                // Solo reproduce la nota base para escuchar
                 ptPlayNote(ptTargetFrequency, 1.5);
-                // Agregar nota que cae
-                const noteIndex = ptNoteNames.indexOf(ptTargetNote);
-                ptFallingNotes.push({
-                    noteIndex: noteIndex,
-                    note: ptTargetNote,
-                    y: 0,
-                    height: 60,
-                    evaluated: false,
-                    color: '#3b82f6' // Azul
+            }
+
+            function ptListenSequence() {
+                // Escuchar toda la secuencia sin evaluar
+                const level = ptLevels[ptCurrentLevel];
+                if (!level) return;
+
+                const baseOctave = parseInt(ptTargetNote.match(/\d+/)[0]);
+                let delay = 0;
+
+                level.sequence.forEach((seqNote) => {
+                    setTimeout(() => {
+                        const realNote = ptGetNoteFromSequence(seqNote, baseOctave);
+                        if (ptNoteFrequencies[realNote]) {
+                            ptPlayNote(ptNoteFrequencies[realNote], 0.6);
+                        }
+                    }, delay);
+                    delay += level.tempo * 0.7;
                 });
             }
 
@@ -916,8 +977,8 @@
                     ptCtx.lineWidth = 2;
                     ptCtx.strokeRect(x, note.y, width, note.height);
 
-                    // Mover hacia abajo
-                    note.y += 2;
+                    // Mover hacia abajo (mas lento)
+                    note.y += ptNoteSpeed;
 
                     // Eliminar si sale de pantalla
                     if (note.y > height) {
@@ -993,7 +1054,7 @@
                 document.getElementById('ptScore').textContent = '0';
                 document.getElementById('ptTestBtn').textContent = '⏹ Detener';
 
-                ptPlayTargetNote();
+                ptStartSequence(); // Inicia la secuencia de notas
                 ptDetectPitchLoop();
                 ptDrawGame();
             }
@@ -1078,12 +1139,21 @@
             }
 
             // Event listeners
-            document.getElementById('ptListenBtn').addEventListener('click', ptPlayTargetNote);
+            document.getElementById('ptListenBtn').addEventListener('click', ptListenSequence);
             document.getElementById('ptTestBtn').addEventListener('click', ptStartTest);
 
+            // Level selector
+            document.getElementById('ptLevelSelect').addEventListener('change', function(e) {
+                ptCurrentLevel = e.target.value;
+                ptUpdateLevelInfo();
+                ptFallingNotes = [];
+                ptUserNoteHistory = [];
+            });
+
             // Initialize
-            ptBuildPiano();
+            ptBuildNoteSelector();
             ptSelectNote('C3');
+            ptUpdateLevelInfo();
             ptDrawGame();
         })();
     </script>
