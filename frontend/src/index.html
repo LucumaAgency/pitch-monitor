@@ -767,8 +767,9 @@
 
                 const noteWidth = ptCanvas.width / ptNoteNames.length;
                 const height = ptCanvas.height;
+                const pianoLineY = height - 5; // Linea donde esta el piano
 
-                // Dibujar grid vertical (columnas de notas)
+                // Dibujar grid vertical (columnas de notas alineadas con teclas)
                 ptCtx.strokeStyle = '#e8e8e8';
                 ptCtx.lineWidth = 1;
                 for (let i = 0; i <= ptNoteNames.length; i++) {
@@ -778,115 +779,114 @@
                     ptCtx.lineTo(x, height);
                     ptCtx.stroke();
 
-                    // Sombrear teclas negras
+                    // Sombrear columnas de teclas negras
                     if (i < ptNoteNames.length && ptNoteNames[i].includes('#')) {
-                        ptCtx.fillStyle = 'rgba(180, 180, 180, 0.25)';
+                        ptCtx.fillStyle = 'rgba(200, 200, 200, 0.2)';
                         ptCtx.fillRect(x, 0, noteWidth, height);
                     }
                 }
 
                 // Dibujar lineas horizontales de tiempo
-                ptCtx.strokeStyle = '#f0f0f0';
-                for (let y = 0; y < height; y += 30) {
+                ptCtx.strokeStyle = '#f5f5f5';
+                for (let y = 0; y < height; y += 40) {
                     ptCtx.beginPath();
                     ptCtx.moveTo(0, y);
                     ptCtx.lineTo(ptCanvas.width, y);
                     ptCtx.stroke();
                 }
 
-                // NOTA OBJETIVO: Linea horizontal azul gruesa en la parte superior
+                // NOTA OBJETIVO: Barra VERTICAL azul (alineada con la tecla del piano)
                 const targetIndex = ptNoteNames.indexOf(ptTargetNote);
                 if (targetIndex !== -1) {
                     const targetX = targetIndex * noteWidth;
 
-                    // Columna resaltada de la nota objetivo
-                    ptCtx.fillStyle = 'rgba(102, 126, 234, 0.1)';
+                    // Columna resaltada suave
+                    ptCtx.fillStyle = 'rgba(102, 126, 234, 0.08)';
                     ptCtx.fillRect(targetX, 0, noteWidth, height);
 
-                    // Linea azul gruesa (la nota objetivo)
-                    ptCtx.fillStyle = '#667eea';
-                    ptCtx.fillRect(targetX + 2, 10, noteWidth - 4, 25);
+                    // Barra vertical azul (la nota objetivo que debes cantar)
+                    // Empieza desde arriba y baja un poco
+                    ptCtx.fillStyle = '#3b82f6';
+                    ptCtx.fillRect(targetX + 4, 20, noteWidth - 8, 80);
 
-                    // Texto de la nota
-                    ptCtx.fillStyle = 'white';
-                    ptCtx.font = 'bold 12px Arial';
-                    ptCtx.textAlign = 'center';
-                    ptCtx.fillText(ptTargetNote, targetX + noteWidth/2, 27);
+                    // Borde de la barra
+                    ptCtx.strokeStyle = '#2563eb';
+                    ptCtx.lineWidth = 2;
+                    ptCtx.strokeRect(targetX + 4, 20, noteWidth - 8, 80);
                 }
 
-                // TU VOZ: Dibujar el trail que baja (cascada de pitch)
-                if (ptPitchTrail.length > 1) {
-                    for (let i = 1; i < ptPitchTrail.length; i++) {
-                        const prev = ptPitchTrail[i - 1];
-                        const curr = ptPitchTrail[i];
+                // TU VOZ: Linea vertical roja que baja (trail de pitch)
+                if (ptPitchTrail.length > 0) {
+                    // Dibujar el trail completo
+                    for (let i = 0; i < ptPitchTrail.length; i++) {
+                        const point = ptPitchTrail[i];
+                        if (point.noteIndex === null) continue;
 
-                        if (prev.noteIndex === null || curr.noteIndex === null) continue;
+                        const x = point.noteIndex * noteWidth + noteWidth / 2;
+                        // Y: el mas reciente esta arriba (cerca del piano line), el mas viejo abajo
+                        const y = pianoLineY - (ptPitchTrail.length - i) * 2.5;
 
-                        const prevX = prev.noteIndex * noteWidth + noteWidth / 2;
-                        const currX = curr.noteIndex * noteWidth + noteWidth / 2;
-
-                        // Y position: mas reciente arriba, mas viejo abajo
-                        const prevY = 50 + (ptPitchTrail.length - i) * 3;
-                        const currY = 50 + (ptPitchTrail.length - i - 1) * 3;
+                        if (y < 0) continue;
 
                         // Color segun precision
                         let color;
-                        if (curr.status === 'perfect') {
-                            color = '#4caf50'; // Verde
-                        } else if (curr.status === 'close') {
-                            color = '#ffeb3b'; // Amarillo
+                        if (point.status === 'perfect') {
+                            color = '#22c55e'; // Verde
+                        } else if (point.status === 'close') {
+                            color = '#eab308'; // Amarillo
                         } else {
-                            color = '#f44336'; // Rojo
+                            color = '#ef4444'; // Rojo
                         }
 
-                        // Dibujar segmento de linea
+                        // Dibujar segmento vertical
+                        ptCtx.fillStyle = color;
+                        ptCtx.fillRect(x - 2, y, 4, 3);
+
+                        // Conectar con punto anterior si existe y es valido
+                        if (i > 0 && ptPitchTrail[i-1].noteIndex !== null) {
+                            const prevPoint = ptPitchTrail[i-1];
+                            const prevX = prevPoint.noteIndex * noteWidth + noteWidth / 2;
+                            const prevY = pianoLineY - (ptPitchTrail.length - i + 1) * 2.5;
+
+                            if (prevY >= 0) {
+                                ptCtx.strokeStyle = color;
+                                ptCtx.lineWidth = 3;
+                                ptCtx.beginPath();
+                                ptCtx.moveTo(prevX, prevY);
+                                ptCtx.lineTo(x, y);
+                                ptCtx.stroke();
+                            }
+                        }
+                    }
+
+                    // Punto actual (indicador de donde estas cantando ahora)
+                    const latest = ptPitchTrail[ptPitchTrail.length - 1];
+                    if (latest.noteIndex !== null) {
+                        const x = latest.noteIndex * noteWidth + noteWidth / 2;
+                        const y = pianoLineY;
+
+                        let color = latest.status === 'perfect' ? '#22c55e' :
+                                    latest.status === 'close' ? '#eab308' : '#ef4444';
+
+                        // Linea vertical desde el punto actual hacia arriba
                         ptCtx.strokeStyle = color;
-                        ptCtx.lineWidth = 4;
-                        ptCtx.lineCap = 'round';
+                        ptCtx.lineWidth = 2;
                         ptCtx.beginPath();
-                        ptCtx.moveTo(prevX, prevY);
-                        ptCtx.lineTo(currX, currY);
+                        ptCtx.moveTo(x, y);
+                        ptCtx.lineTo(x, y - 20);
                         ptCtx.stroke();
 
-                        // Dibujar punto en cada posicion
+                        // Circulo indicador
                         ptCtx.fillStyle = color;
                         ptCtx.beginPath();
-                        ptCtx.arc(currX, currY, 3, 0, Math.PI * 2);
+                        ptCtx.arc(x, y, 6, 0, Math.PI * 2);
                         ptCtx.fill();
-                    }
 
-                    // Punto actual (mas grande, en la parte superior del trail)
-                    if (ptPitchTrail.length > 0) {
-                        const latest = ptPitchTrail[ptPitchTrail.length - 1];
-                        if (latest.noteIndex !== null) {
-                            const x = latest.noteIndex * noteWidth + noteWidth / 2;
-                            const y = 50;
-
-                            let color = latest.status === 'perfect' ? '#4caf50' :
-                                        latest.status === 'close' ? '#ffeb3b' : '#f44336';
-
-                            ptCtx.fillStyle = color;
-                            ptCtx.beginPath();
-                            ptCtx.arc(x, y, 8, 0, Math.PI * 2);
-                            ptCtx.fill();
-
-                            // Borde
-                            ptCtx.strokeStyle = 'white';
-                            ptCtx.lineWidth = 2;
-                            ptCtx.stroke();
-                        }
+                        ptCtx.strokeStyle = 'white';
+                        ptCtx.lineWidth = 2;
+                        ptCtx.stroke();
                     }
                 }
-
-                // Linea de referencia donde aparece tu pitch
-                ptCtx.strokeStyle = 'rgba(255, 100, 100, 0.3)';
-                ptCtx.lineWidth = 1;
-                ptCtx.setLineDash([5, 5]);
-                ptCtx.beginPath();
-                ptCtx.moveTo(0, 50);
-                ptCtx.lineTo(ptCanvas.width, 50);
-                ptCtx.stroke();
-                ptCtx.setLineDash([]);
 
                 if (ptIsTestRunning) ptAnimationId = requestAnimationFrame(ptDrawGame);
             }
