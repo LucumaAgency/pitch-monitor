@@ -19,8 +19,21 @@ class FinalPitchMonitor {
         this.videoGainNode = null;
         
         this.noteStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        
+
+        // Gráfico de pitch en el tiempo (estilo "Pitch Monitor")
+        this.graphMinFreq = 65.41;   // C2
+        this.graphMaxFreq = 1046.5;  // C6
+        this.historyMax = 250;       // ~ ventana temporal
+        this.micHistory = [];        // frecuencia detectada del micrófono (o null)
+        this.songHistory = [];       // frecuencia detectada de la canción (o null)
+        // Rango de detección de pitch (Hz)
+        this.detectMinFreq = 70;
+        this.detectMaxFreq = 1200;
+
         this.initializeEventListeners();
+
+        // Dibujar la rejilla de notas al cargar (aunque no haya audio todavía)
+        requestAnimationFrame(() => this.drawPitchGraph('waveformCanvas'));
     }
     
     initializeEventListeners() {
@@ -385,12 +398,13 @@ class FinalPitchMonitor {
     
     animate() {
         if (!this.isMonitoring) return;
-        
+
         this.rafId = requestAnimationFrame(() => this.animate());
-        
-        // Análisis del micrófono
+
+        // --- Micrófono (tu nota) ---
+        let micPitch = -1;
         if (this.micAnalyser) {
-            const micPitch = this.detectPitch(this.micAnalyser, 'mic');
+            micPitch = this.detectPitch(this.micAnalyser, 'mic');
             if (micPitch && micPitch > 0) {
                 const note = this.frequencyToNote(micPitch);
                 document.getElementById('userNote').textContent = note.note;
@@ -399,35 +413,108 @@ class FinalPitchMonitor {
                 document.getElementById('userNote').textContent = '--';
                 document.getElementById('userFreq').textContent = '0 Hz';
             }
-            
-            this.drawWaveform(this.micAnalyser, 'waveformCanvas');
         }
-        
-        // Análisis del video
+
+        // --- Canción (nota del video/archivo) ---
+        let songPitch = -1;
         if (this.videoAnalyser && this.videoAudioElement && !this.videoAudioElement.paused) {
-            // Verificar que hay señal de audio
             const dataArray = new Uint8Array(this.videoAnalyser.frequencyBinCount);
             this.videoAnalyser.getByteFrequencyData(dataArray);
             const avgVolume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-            
-            if (avgVolume > 5) { // Solo detectar si hay suficiente señal
-                const videoPitch = this.detectPitch(this.videoAnalyser, 'video');
-                if (videoPitch && videoPitch > 0) {
-                    const note = this.frequencyToNote(videoPitch);
-                    document.getElementById('videoNote').textContent = note.note;
-                    document.getElementById('videoFreq').textContent = `${videoPitch.toFixed(1)} Hz`;
-                }
+
+            if (avgVolume > 3) {
+                songPitch = this.detectPitch(this.videoAnalyser, 'song');
+            }
+            if (songPitch && songPitch > 0) {
+                const note = this.frequencyToNote(songPitch);
+                document.getElementById('videoNote').textContent = note.note;
+                document.getElementById('videoFreq').textContent = `${songPitch.toFixed(1)} Hz`;
             } else {
                 document.getElementById('videoNote').textContent = '--';
                 document.getElementById('videoFreq').textContent = '0 Hz';
             }
-            
-            this.drawFrequencySpectrum(this.videoAnalyser, 'frequencyCanvas');
-        } else if (this.micAnalyser) {
-            this.drawFrequencySpectrum(this.micAnalyser, 'frequencyCanvas');
         }
-        
+
+        // --- Historial y gráfico de pitch en el tiempo ---
+        this.pushHistory(this.micHistory, micPitch > 0 ? micPitch : null);
+        this.pushHistory(this.songHistory, songPitch > 0 ? songPitch : null);
+        this.drawPitchGraph('waveformCanvas');
+
         this.updateMatchLevel();
+    }
+
+    pushHistory(arr, value) {
+        arr.push(value);
+        if (arr.length > this.historyMax) arr.shift();
+    }
+
+    // Mapea una frecuencia a la coordenada Y del gráfico (escala logarítmica de notas)
+    freqToY(freq, height) {
+        const logMin = Math.log2(this.graphMinFreq);
+        const logMax = Math.log2(this.graphMaxFreq);
+        const t = (Math.log2(freq) - logMin) / (logMax - logMin);
+        return height - Math.max(0, Math.min(1, t)) * height;
+    }
+
+    drawPitchGraph(canvasId) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        const W = canvas.width, H = canvas.height;
+
+        // Fondo oscuro
+        ctx.fillStyle = '#2b2b2b';
+        ctx.fillRect(0, 0, W, H);
+
+        // Rejilla de notas (una línea por semitono, etiqueta en cada C)
+        const startMidi = Math.round(69 + 12 * Math.log2(this.graphMinFreq / 440));
+        const endMidi = Math.round(69 + 12 * Math.log2(this.graphMaxFreq / 440));
+        ctx.font = '12px sans-serif';
+        for (let m = startMidi; m <= endMidi; m++) {
+            const freq = 440 * Math.pow(2, (m - 69) / 12);
+            const y = this.freqToY(freq, H);
+            const isC = (m % 12) === 0;
+            ctx.strokeStyle = isC ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+            if (isC) {
+                const octave = Math.floor(m / 12) - 1;
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.fillText('C' + octave, 6, y - 4);
+            }
+        }
+
+        // Líneas de pitch
+        this.drawHistoryLine(ctx, this.songHistory, '#e0533d', W, H); // canción (rojo/naranja)
+        this.drawHistoryLine(ctx, this.micHistory, '#33c1ff', W, H);  // tu voz (azul)
+    }
+
+    drawHistoryLine(ctx, history, color, W, H) {
+        const n = this.historyMax;
+        const step = W / (n - 1);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        let drawing = false;
+        ctx.beginPath();
+        for (let i = 0; i < history.length; i++) {
+            const freq = history[i];
+            const x = (i + (n - history.length)) * step;
+            if (freq && freq > 0) {
+                const y = this.freqToY(freq, H);
+                if (!drawing) { ctx.moveTo(x, y); drawing = true; }
+                else { ctx.lineTo(x, y); }
+            } else {
+                drawing = false; // corta la línea en silencios
+            }
+        }
+        ctx.stroke();
     }
     
     detectPitch(analyser, source = '') {
@@ -451,46 +538,56 @@ class FinalPitchMonitor {
         return this.improvedAutocorrelate(buffer, this.audioContext.sampleRate);
     }
     
+    // Autocorrelación (basada en cwilso/PitchDetect): salta el pico de lag 0
+    // para evitar errores de octava, busca dentro del rango de frecuencia
+    // válido y refina con interpolación parabólica.
     improvedAutocorrelate(buffer, sampleRate) {
         const SIZE = buffer.length;
-        const MAX_SAMPLES = Math.floor(SIZE / 2);
-        const MIN_SAMPLES = 0;
-        let bestOffset = -1;
-        let bestCorrelation = 0;
-        let foundGoodCorrelation = false;
-        let correlations = [];
-        
-        // Calcular todas las correlaciones
-        for (let offset = MIN_SAMPLES; offset < MAX_SAMPLES; offset++) {
-            let correlation = 0;
-            
-            for (let i = 0; i < MAX_SAMPLES; i++) {
-                correlation += Math.abs((buffer[i]) - (buffer[i + offset]));
-            }
-            
-            correlation = 1 - (correlation / MAX_SAMPLES);
-            correlations[offset] = correlation;
-            
-            if (correlation > 0.9 && correlation > bestCorrelation) {
-                bestCorrelation = correlation;
-                bestOffset = offset;
-                foundGoodCorrelation = true;
-            }
+
+        // Recortar silencio en los bordes para mejorar la correlación
+        const thres = 0.2;
+        let r1 = 0, r2 = SIZE - 1;
+        for (let i = 0; i < SIZE / 2; i++) {
+            if (Math.abs(buffer[i]) < thres) { r1 = i; break; }
         }
-        
-        if (foundGoodCorrelation && bestOffset > 0) {
-            // Refinamiento con interpolación
-            let y1 = correlations[bestOffset - 1] || 0;
-            let y2 = correlations[bestOffset];
-            let y3 = correlations[bestOffset + 1] || 0;
-            
-            let x0 = (y3 - y1) / (2 * (2 * y2 - y1 - y3));
-            let refinedOffset = bestOffset + x0;
-            
-            return sampleRate / refinedOffset;
+        for (let i = 1; i < SIZE / 2; i++) {
+            if (Math.abs(buffer[SIZE - i]) < thres) { r2 = SIZE - i; break; }
         }
-        
-        return -1;
+        const buf = buffer.subarray(r1, r2);
+        const n = buf.length;
+        if (n < 4) return -1;
+
+        // Lags plausibles (período en muestras) para el rango de frecuencia
+        const minLag = Math.max(2, Math.floor(sampleRate / this.detectMaxFreq));
+        const maxLag = Math.min(n - 1, Math.floor(sampleRate / this.detectMinFreq) + 2);
+
+        // Autocorrelación solo hasta maxLag (acota el coste)
+        const c = new Array(maxLag + 1).fill(0);
+        for (let lag = 0; lag <= maxLag; lag++) {
+            let sum = 0;
+            for (let j = 0; j < n - lag; j++) sum += buf[j] * buf[j + lag];
+            c[lag] = sum;
+        }
+
+        // Saltar el pico inicial (lag 0): avanzar hasta la primera subida
+        let d = 0;
+        while (d < maxLag && c[d] > c[d + 1]) d++;
+
+        // Máximo de correlación dentro del rango válido
+        let maxval = -1, maxpos = -1;
+        for (let lag = Math.max(d, minLag); lag <= maxLag; lag++) {
+            if (c[lag] > maxval) { maxval = c[lag]; maxpos = lag; }
+        }
+        if (maxpos <= 0 || maxval <= 0) return -1;
+
+        // Interpolación parabólica para afinar el período
+        let T0 = maxpos;
+        const x1 = c[T0 - 1] || 0, x2 = c[T0], x3 = c[T0 + 1] || 0;
+        const a = (x1 + x3 - 2 * x2) / 2;
+        const b = (x3 - x1) / 2;
+        if (a) T0 = T0 - b / (2 * a);
+
+        return sampleRate / T0;
     }
     
     frequencyToNote(frequency) {
