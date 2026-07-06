@@ -75,6 +75,15 @@ class FinalPitchMonitor {
             this.videoAudioElement.controls = true;
             this.videoAudioElement.style.width = '100%';
 
+            // Con MP3 no se usa YouTube: ocultar y detener el player para no duplicar audio
+            if (this.youtubePlayer && typeof this.youtubePlayer.stopVideo === 'function') {
+                this.youtubePlayer.stopVideo();
+            }
+            const ytBox = document.getElementById('youtubePlayer');
+            if (ytBox) ytBox.style.display = 'none';
+            const ytControls = document.getElementById('videoControls');
+            if (ytControls) ytControls.style.display = 'none';
+
             // Mostrar el reproductor para que el usuario controle play/pausa/seek
             const playerBox = document.getElementById('audioFilePlayer');
             if (playerBox) {
@@ -121,8 +130,13 @@ class FinalPitchMonitor {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 console.log('AudioContext creado, sampleRate:', this.audioContext.sampleRate);
             }
-            
-            this.micStream = await navigator.mediaDevices.getUserMedia({ 
+            // En móvil/iOS el contexto arranca suspendido: sin resume() el
+            // analyser del micrófono no recibe audio y "Tu Nota" queda en '--'.
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+
+            this.micStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: false,
                     noiseSuppression: false,
@@ -200,8 +214,9 @@ class FinalPitchMonitor {
     
     loadYoutubeIframe(videoId) {
         const container = document.getElementById('youtubePlayer');
+        container.style.display = ''; // reaparecer si un MP3 lo ocultó
         container.innerHTML = '';
-        
+
         if (!this.youtubePlayer) {
             this.youtubePlayer = new YT.Player('youtubePlayer', {
                 height: '100%',
@@ -528,12 +543,14 @@ class FinalPitchMonitor {
             rms += buffer[i] * buffer[i];
         }
         rms = Math.sqrt(rms / buffer.length);
-        
-        // Umbral de ruido
-        if (rms < 0.01) {
+
+        // Umbral de ruido. El micrófono (sobre todo con autoGainControl off)
+        // suele dar señal más débil que un MP3, así que usa un piso más bajo.
+        const noiseFloor = source === 'mic' ? 0.005 : 0.01;
+        if (rms < noiseFloor) {
             return -1;
         }
-        
+
         // Usar autocorrelación mejorada para detección rápida
         return this.improvedAutocorrelate(buffer, this.audioContext.sampleRate);
     }
