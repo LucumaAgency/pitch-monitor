@@ -85,5 +85,3 @@ Canvas `#waveformCanvas` (720px de alto, fondo oscuro):
 - Notas fuera de C2–C6 se "aplastan" contra el borde del gráfico.
 - Limpiar los ~9 servidores de respaldo muertos.
 - La detección sobre música polifónica sigue la melodía dominante, no es perfecta.
-</content>
-</invoke>
