@@ -477,45 +477,9 @@ class FinalPitchMonitor {
         return this.noteStrings[i] + octave;
     }
 
-    // Ajusta el rango vertical del gráfico al pitch realmente detectado
-    // (voz + canción), con margen arriba y abajo, suavizado para no saltar.
-    updateGraphRange() {
-        let lo = Infinity, hi = -Infinity;
-        for (const f of this.micHistory) if (f && f > 0) { if (f < lo) lo = f; if (f > hi) hi = f; }
-        for (const f of this.songHistory) if (f && f > 0) { if (f < lo) lo = f; if (f > hi) hi = f; }
-
-        let targetMin, targetMax;
-        if (!isFinite(lo) || !isFinite(hi)) {
-            // Sin datos aún: rango por defecto amplio
-            targetMin = 65.41;   // C2
-            targetMax = 1046.5;  // C6
-        } else {
-            // Margen de 4 semitonos arriba y abajo
-            targetMin = lo * Math.pow(2, -4 / 12);
-            targetMax = hi * Math.pow(2, 4 / 12);
-            // Mínimo 2 octavas visibles para que no se vea aplastado
-            const minSpan = Math.pow(2, 2);
-            if (targetMax / targetMin < minSpan) {
-                const center = Math.sqrt(targetMin * targetMax);
-                targetMin = center / Math.sqrt(minSpan);
-                targetMax = center * Math.sqrt(minSpan);
-            }
-            // Límites absolutos razonables
-            targetMin = Math.max(49, targetMin);   // ~G1
-            targetMax = Math.min(2093, targetMax);  // C7
-        }
-
-        // Suavizado exponencial hacia el objetivo
-        const ease = 0.08;
-        this.graphMinFreq += (targetMin - this.graphMinFreq) * ease;
-        this.graphMaxFreq += (targetMax - this.graphMaxFreq) * ease;
-    }
-
     drawPitchGraph(canvasId) {
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
-
-        this.updateGraphRange();
 
         const ctx = canvas.getContext('2d');
         canvas.width = canvas.offsetWidth;
@@ -526,28 +490,25 @@ class FinalPitchMonitor {
         ctx.fillStyle = '#2b2b2b';
         ctx.fillRect(0, 0, W, H);
 
-        // Rejilla de notas: una línea por semitono. Etiquetas según el espacio:
-        // si hay sitio, TODAS las notas; si no, solo las C (para no saturar).
+        // Rejilla FIJA: una línea y etiqueta por CADA nota (C, C#, D, ...).
+        // El rango no cambia con la canción, así las líneas no se mueven.
         const startMidi = Math.ceil(69 + 12 * Math.log2(this.graphMinFreq / 440));
         const endMidi = Math.floor(69 + 12 * Math.log2(this.graphMaxFreq / 440));
-        const semitoneSpacing = H / Math.max(1, (endMidi - startMidi));
-        const labelAll = semitoneSpacing >= 15;
         ctx.font = '11px sans-serif';
         ctx.textBaseline = 'middle';
         for (let m = startMidi; m <= endMidi; m++) {
             const freq = 440 * Math.pow(2, (m - 69) / 12);
             const y = this.freqToY(freq, H);
             const isC = (((m % 12) + 12) % 12) === 0;
-            ctx.strokeStyle = isC ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.08)';
+            ctx.strokeStyle = isC ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.10)';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(34, y);
+            ctx.moveTo(40, y);
             ctx.lineTo(W, y);
             ctx.stroke();
-            if (labelAll || isC) {
-                ctx.fillStyle = isC ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)';
-                ctx.fillText(this.midiToName(m), 4, y);
-            }
+            // Etiqueta de TODAS las notas
+            ctx.fillStyle = isC ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)';
+            ctx.fillText(this.midiToName(m), 5, y);
         }
 
         // Líneas de pitch
