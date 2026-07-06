@@ -26,7 +26,78 @@ class FinalPitchMonitor {
     initializeEventListeners() {
         document.getElementById('startMic').addEventListener('click', () => this.startMicrophone());
         document.getElementById('stopMic').addEventListener('click', () => this.stopMicrophone());
-        document.getElementById('loadYoutube').addEventListener('click', () => this.loadYoutubeVideo());
+        const loadYt = document.getElementById('loadYoutube');
+        if (loadYt) loadYt.addEventListener('click', () => this.loadYoutubeVideo());
+        const audioFile = document.getElementById('audioFile');
+        if (audioFile) audioFile.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (file) this.setupAudioAnalysisFromFile(file);
+        });
+    }
+
+    // Analiza la nota de la canción desde un archivo local (MP3/WAV).
+    // Fuente confiable: el navegador SÍ puede analizar audio local con Web Audio API,
+    // a diferencia del stream de YouTube (bloqueado) o el iframe (cross-origin).
+    async setupAudioAnalysisFromFile(file) {
+        try {
+            this.updateStatus('Cargando archivo de audio...', 'info');
+
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+
+            // Limpiar cualquier fuente de video/audio previa
+            if (this.videoAudioElement) {
+                this.videoAudioElement.pause();
+                if (this.videoSource) this.videoSource.disconnect();
+                if (this.videoGainNode) this.videoGainNode.disconnect();
+            }
+
+            this.videoAudioElement = new Audio();
+            this.videoAudioElement.src = URL.createObjectURL(file);
+            this.videoAudioElement.preload = 'auto';
+            this.videoAudioElement.controls = true;
+            this.videoAudioElement.style.width = '100%';
+
+            // Mostrar el reproductor para que el usuario controle play/pausa/seek
+            const playerBox = document.getElementById('audioFilePlayer');
+            if (playerBox) {
+                playerBox.innerHTML = '';
+                playerBox.appendChild(this.videoAudioElement);
+            }
+
+            await new Promise((resolve, reject) => {
+                this.videoAudioElement.addEventListener('canplay', resolve, { once: true });
+                this.videoAudioElement.addEventListener('error', () => reject(new Error('Formato de audio no soportado')), { once: true });
+                this.videoAudioElement.load();
+            });
+
+            this.videoSource = this.audioContext.createMediaElementSource(this.videoAudioElement);
+            this.videoAnalyser = this.audioContext.createAnalyser();
+            this.videoAnalyser.fftSize = 4096;
+            this.videoAnalyser.smoothingTimeConstant = 0.8;
+
+            // A diferencia de YouTube (que suena por el iframe), el archivo local
+            // debe escucharse: no se silencia.
+            this.videoGainNode = this.audioContext.createGain();
+            this.videoGainNode.gain.value = 1;
+
+            this.videoSource.connect(this.videoAnalyser);
+            this.videoSource.connect(this.videoGainNode);
+            this.videoGainNode.connect(this.audioContext.destination);
+
+            this.videoAudioElement.play().catch(() => {});
+            this.updateStatus('Canción lista. Reproduce el audio y canta para comparar.', 'success');
+
+            if (!this.isMonitoring) this.startMonitoring();
+
+        } catch (error) {
+            console.error('Error al cargar archivo de audio:', error);
+            this.updateStatus('Error: no se pudo leer el archivo de audio', 'error');
+        }
     }
     
     async startMicrophone() {

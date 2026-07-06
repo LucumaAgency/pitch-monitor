@@ -222,13 +222,20 @@
             </div>
             
             <div class="control-group">
-                <h3>📺 YouTube</h3>
-                <input type="text" id="youtubeUrl" placeholder="URL del video de YouTube">
-                <button id="loadYoutube">Cargar Video</button>
+                <h3>🎵 Canción</h3>
+                <input type="file" id="audioFile" accept="audio/*">
+                <p style="font-size:0.8em;color:#888;margin:8px 0 4px;">Sube un MP3/audio para detectar su nota.</p>
+                <details style="font-size:0.8em;color:#888;">
+                    <summary style="cursor:pointer;color:#667eea;">¿Y YouTube?</summary>
+                    <input type="text" id="youtubeUrl" placeholder="URL del video de YouTube" style="margin-top:8px;">
+                    <button id="loadYoutube">Cargar Video (solo verlo)</button>
+                    <p style="margin-top:6px;">YouTube bloquea el análisis del audio; el video sirve solo para verlo. Para detectar la nota de la canción, sube el archivo de audio.</p>
+                </details>
             </div>
         </div>
-        
+
         <div class="video-container">
+            <div id="audioFilePlayer" style="margin-bottom:10px;"></div>
             <div id="youtubePlayer"></div>
             <div class="video-controls" id="videoControls" style="display: none;">
                 <button id="playPause">▶️ Play</button>
@@ -252,7 +259,7 @@
             </div>
             
             <div class="pitch-box">
-                <h3>📺 Nota del Video</h3>
+                <h3>🎵 Nota de la Canción</h3>
                 <div class="note" id="videoNote">--</div>
                 <div class="frequency" id="videoFreq">0 Hz</div>
             </div>
