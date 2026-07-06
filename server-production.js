@@ -1,7 +1,7 @@
 // SERVIDOR DE PRODUCCIÓN - Sirve desde frontend/
 const express = require('express');
 const cors = require('cors');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 const path = require('path');
 const fs = require('fs');
 
@@ -76,7 +76,17 @@ app.get('/api/youtube-stream/:videoId', (req, res) => {
             filter: 'audioonly',
             quality: 'highestaudio'
         });
-        
+
+        // Sin este handler, un error de YouTube (ej. 403) tumba el proceso Node
+        stream.on('error', (error) => {
+            console.error('Stream error:', error.message);
+            if (!res.headersSent) {
+                res.status(502).json({ error: 'Streaming error', details: error.message });
+            } else {
+                res.end();
+            }
+        });
+
         stream.pipe(res);
     } catch (error) {
         console.error('Stream error:', error.message);

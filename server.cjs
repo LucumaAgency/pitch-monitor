@@ -5,7 +5,7 @@
 
 const express = require('express');
 const cors = require('cors');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 const path = require('path');
 // Intentar cargar logger, si falla usar console
 let logger;
@@ -64,8 +64,8 @@ app.use((req, res, next) => {
 // ==========================================
 // 📁 SERVIR FRONTEND
 // ==========================================
-// Servir archivos estáticos del frontend
-const staticPath = path.join(__dirname, 'frontend/src');
+// Servir archivos estáticos del frontend (carpeta construida por build.js/setup-frontend.js)
+const staticPath = path.join(__dirname, 'frontend');
 logger.info(`📁 Sirviendo archivos estáticos desde: ${staticPath}`);
 app.use(express.static(staticPath));
 
@@ -220,7 +220,7 @@ app.use((err, req, res, next) => {
 
 // SPA fallback - todas las rutas no-API van al index
 app.get('*', (req, res) => {
-    const indexPath = path.join(__dirname, 'frontend/src/index.html');
+    const indexPath = path.join(__dirname, 'frontend/index.html');
     logger.info(`📄 Sirviendo index.html desde: ${indexPath}`);
     res.sendFile(indexPath);
 });

@@ -1,7 +1,7 @@
 # NO procesar rutas /api con Apache
 RewriteEngine On
 
-# Si la ruta empieza con /api, no hacer nada (dejar que Node.js la maneje)
+# Si la ruta empieza con /api, no hacer nada
 RewriteCond %{REQUEST_URI} ^/api/
 RewriteRule ^ - [L]
 

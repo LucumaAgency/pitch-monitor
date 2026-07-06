@@ -3,7 +3,7 @@ const { exec } = require('child_process');
 
 console.log('📦 Actualizando ytdl-core...');
 
-exec('npm update ytdl-core', (error, stdout, stderr) => {
+exec('npm update @distube/ytdl-core', (error, stdout, stderr) => {
     if (error) {
         console.error(`Error: ${error.message}`);
         return;
@@ -16,7 +16,7 @@ exec('npm update ytdl-core', (error, stdout, stderr) => {
     console.log('✅ ytdl-core actualizado');
     
     // Verificar versión
-    const ytdl = require('ytdl-core');
-    const version = require('ytdl-core/package.json').version;
+    const ytdl = require('@distube/ytdl-core');
+    const version = require('@distube/ytdl-core/package.json').version;
     console.log(`📌 Versión de ytdl-core: ${version}`);
 });

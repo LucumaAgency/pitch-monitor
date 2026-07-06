@@ -20,7 +20,7 @@
    Package manager: npm
    Document Root: /httpdocs (o donde hayas clonado el repo)
    Application Root: /httpdocs (mismo que Document Root)
-   Application Startup File: server.js
+   Application Startup File: server.cjs
    ```
 
 3. **Variables de Entorno (Application parameters):**

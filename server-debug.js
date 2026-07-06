@@ -1,7 +1,7 @@
 // SERVIDOR CON DEBUG PARA YOUTUBE
 const express = require('express');
 const cors = require('cors');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 const path = require('path');
 
 const app = express();
@@ -16,7 +16,7 @@ app.use(express.json());
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'healthy',
-        ytdl_version: require('ytdl-core/package.json').version,
+        ytdl_version: require('@distube/ytdl-core/package.json').version,
         timestamp: new Date().toISOString()
     });
 });
